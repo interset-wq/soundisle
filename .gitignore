@@ -22,3 +22,6 @@
 # OS / editor
 .DS_Store
 *.swp
+
+# Kotlin compiler session dirs
+app/android/.kotlin/

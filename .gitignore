@@ -1,0 +1,24 @@
+# Local reference checkouts
+/tmp/
+
+# Build artifacts
+/backend/bin/
+/app/build/
+/app/.dart_tool/
+/app/.flutter-plugins-dependencies
+/app/android/.gradle/
+/app/android/local.properties
+/app/android/app/libs/*.aar
+/app/android/app/libs/*-sources.jar
+/app/ios/Frameworks/*.xcframework
+/app/ios/Flutter/ephemeral/
+/app/ios/Pods/
+/app/macos/Pods/
+/app/linux/flutter/ephemeral/
+/app/windows/flutter/ephemeral/
+/app/.idea/
+/app/*.iml
+
+# OS / editor
+.DS_Store
+*.swp

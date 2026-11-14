@@ -1,0 +1,31 @@
+Soundisle (声屿)
+Copyright (C) 2026 interset-wq
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See the LICENSE file for the full text.
+
+Third-party components
+----------------------
+
+- music-lib — music source adapters and lyrics.
+  Copyright (C) guohuiyuan and contributors.
+  AGPL-3.0 — https://github.com/guohuiyuan/music-lib
+
+- Flutter — https://github.com/flutter/flutter (BSD-3-Clause)
+
+- just_audio, just_audio_background, audio_session — MIT / Apache-2.0
+  https://github.com/ryanheise/just_audio
+
+- media_kit — MIT — https://github.com/media-kit/media-kit
+
+- Go standard library and golang.org/x packages — BSD-3-Clause
+  https://go.dev/
+
+- Other Dart packages retain their respective licenses; see app/pubspec.lock
+  and the package metadata for details.
+
+Soundisle does not host or distribute any music. Playback resolves streams from
+third-party services at runtime; users are responsible for complying with the
+terms and copyright laws of those services in their jurisdiction.

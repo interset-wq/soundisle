@@ -1,5 +1,7 @@
 # 声屿 Soundisle
 
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 声屿是一个跨平台音乐播放器（Android / iOS / Windows / macOS / Linux），界面接近手机自带音乐 App，
 核心播放与曲库能力由内嵌的 Go 服务提供，不依赖任何云端部署。
 
@@ -97,6 +99,13 @@ cd app && flutter build ios
 数据（设置、收藏、歌单、Cookie、下载）以 JSON 文件保存在应用数据目录，不使用 SQLite。
 
 Android 验收步骤见 `docs/android-verification.md`。
+
+## 许可证
+
+本项目以 **GNU AGPL-3.0** 发布，详见 [LICENSE](LICENSE)。内嵌的
+[music-lib](https://github.com/guohuiyuan/music-lib) 同样采用 AGPL-3.0，
+因此整体分发（包括通过网络提供服务）需遵守 AGPL 的开源义务。
+第三方组件与免责声明见 [NOTICE](NOTICE)。
 
 ## 已知限制
 

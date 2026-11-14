@@ -58,10 +58,12 @@ jobs:
           flutter analyze
           flutter test
 
+      # The Go core ships arm64 + arm only, so skip the x86_64 engine and keep
+      # a single universal APK for phones.
       - name: Build APK
         working-directory: app
         run: |
-          flutter build apk --release
+          flutter build apk --release --target-platform android-arm64,android-arm
           cp build/app/outputs/flutter-apk/app-release.apk \
              "$GITHUB_WORKSPACE/soundisle-android.apk"
 
@@ -87,6 +89,7 @@ jobs:
           - 版本：$VERSION（构建号 ${{ github.run_number }}）
           - 提交：${{ github.sha }}
           - 内置 Go 音乐核心（arm64 / armeabi-v7a）
+          - 单包通用 APK，不含 x86_64 模拟器支持
           - release 变体，使用 debug 签名，仅用于验收，请勿上架
 
           ## 安装

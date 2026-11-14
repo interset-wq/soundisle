@@ -42,6 +42,7 @@ case "$TARGET" in
       -target=android/arm64,android/arm \
       -androidapi 24 \
       -javapkg=app.soundisle.core \
+      -ldflags "-s -w" \
       -o "$OUT" \
       ./mobile
     echo "built $OUT"

@@ -10,6 +10,7 @@ import 'app.dart';
 import 'core/api_client.dart';
 import 'core/app_state.dart';
 import 'core/backend.dart';
+import 'core/permissions.dart';
 import 'core/player_controller.dart';
 import 'ui/theme.dart';
 
@@ -75,6 +76,7 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
     });
     try {
       final handle = await BackendService.instance.start();
+      unawaited(AppPermissions.requestStartupPermissions());
       final api = ApiClient(baseUrl: handle.baseUrl, token: handle.token);
       final appState = AppState(api);
       await appState.initialize();

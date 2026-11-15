@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/guohuiyuan/music-lib/migu"
 	"github.com/guohuiyuan/music-lib/model"
@@ -35,6 +37,12 @@ type streamEntry struct {
 	ContentType string
 	Preview     bool
 	ExpiresAt   time.Time
+
+	// FallbackSource is set when the requested platform could not provide audio
+	// and a matching song from another platform was used instead.
+	FallbackSource string
+	FallbackName   string
+	FallbackArtist string
 }
 
 type StreamManager struct {
@@ -125,10 +133,28 @@ func (m *StreamManager) get(t string) (*streamEntry, bool) {
 	return e, true
 }
 
-// Resolve turns song metadata into a local stream token. For providers whose
-// audio is encrypted (Soda VIP, Migu Z3D) the file is fetched and decrypted up
-// front, which is the same strategy go-music-dl uses for its web player.
+// Resolve turns song metadata into a local stream token. When the requested
+// platform cannot provide audio (VIP-only, removed, geo-blocked...) it searches
+// the other platforms for the same track and transparently uses the first
+// working match, which mirrors what go-music-dl does in its web player.
 func (m *StreamManager) Resolve(ctx context.Context, song model.Song) (*streamEntry, string, error) {
+	entry, t, err := m.resolveDirect(ctx, song)
+	if err == nil {
+		return entry, t, nil
+	}
+	primaryErr := err
+	if strings.TrimSpace(song.Source) == "local" || strings.TrimSpace(song.Name) == "" {
+		return nil, "", err
+	}
+	altEntry, altToken, _, altErr := m.resolveFromOtherSources(ctx, song)
+	if altErr == nil && altEntry != nil {
+		return altEntry, altToken, nil
+	}
+	return nil, "", fmt.Errorf("%s；已尝试其他音源，仍未找到可播放版本", primaryErr.Error())
+}
+
+// resolveDirect resolves audio on the song's own platform.
+func (m *StreamManager) resolveDirect(ctx context.Context, song model.Song) (*streamEntry, string, error) {
 	if strings.TrimSpace(song.ID) == "" || strings.TrimSpace(song.Source) == "" {
 		return nil, "", errors.New("missing song id or source")
 	}
@@ -229,6 +255,153 @@ func (m *StreamManager) Resolve(ctx context.Context, song model.Song) (*streamEn
 	}
 	t := m.add(entry)
 	return entry, t, nil
+}
+
+// resolveFromOtherSources searches the mainstream platforms for the same track
+// and returns the first candidate that can actually resolve to audio.
+func (m *StreamManager) resolveFromOtherSources(ctx context.Context, song model.Song) (*streamEntry, string, *model.Song, error) {
+	fctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	query := strings.TrimSpace(song.Name + " " + song.Artist)
+	sourceIDs := make([]string, 0, len(defaultSearchSources)+1)
+	seen := map[string]bool{}
+	for _, id := range append(append([]string{}, defaultSearchSources...), "soda") {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		sourceIDs = append(sourceIDs, id)
+	}
+
+	type searchResult struct {
+		source string
+		songs  []model.Song
+	}
+	results := make(chan searchResult, len(sourceIDs))
+	var wg sync.WaitGroup
+	for _, id := range sourceIDs {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			p, err := newProvider(id, m.store.Cookie(id))
+			if err != nil || p.search == nil {
+				results <- searchResult{source: id}
+				return
+			}
+			done := make(chan struct{})
+			var songs []model.Song
+			go func() {
+				defer close(done)
+				songs, _ = p.search(query)
+			}()
+			select {
+			case <-done:
+			case <-fctx.Done():
+			case <-time.After(12 * time.Second):
+			}
+			results <- searchResult{source: id, songs: songs}
+		}(id)
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	wantTitle := normalizeTitle(song.Name)
+	wantArtist := normalizeTitle(song.Artist)
+	type candidate struct {
+		song  model.Song
+		score int
+	}
+	candidates := make([]candidate, 0, 32)
+	for result := range results {
+		for _, found := range result.songs {
+			if strings.TrimSpace(found.ID) == "" {
+				continue
+			}
+			if found.Source == "" {
+				found.Source = result.source
+			}
+			if found.Source == song.Source && found.ID == song.ID {
+				continue
+			}
+			title := normalizeTitle(found.Name)
+			if title == "" {
+				continue
+			}
+			score := 0
+			switch {
+			case title == wantTitle:
+				score += 100
+			case strings.Contains(title, wantTitle) || strings.Contains(wantTitle, title):
+				score += 55
+			default:
+				continue
+			}
+			artist := normalizeTitle(found.Artist)
+			if wantArtist != "" && artist != "" {
+				switch {
+				case artist == wantArtist:
+					score += 50
+				case strings.Contains(artist, wantArtist) || strings.Contains(wantArtist, artist):
+					score += 30
+				}
+			}
+			if found.Duration > 0 && song.Duration > 0 && absInt(found.Duration-song.Duration) > 10 {
+				score -= 15
+			}
+			if found.Extra != nil && (found.Extra["preview"] == "true" || found.Extra["preview_only"] == "true") {
+				score -= 25
+			}
+			if found.IsVIP {
+				score -= 10
+			}
+			candidates = append(candidates, candidate{song: found, score: score})
+		}
+	}
+	if len(candidates) == 0 {
+		return nil, "", nil, errors.New("其他音源没有找到同名歌曲")
+	}
+	sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].score > candidates[j].score })
+
+	var lastErr error
+	for i, item := range candidates {
+		if i >= 4 || fctx.Err() != nil {
+			break
+		}
+		entry, t, err := m.resolveDirect(fctx, item.song)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		entry.FallbackSource = item.song.Source
+		entry.FallbackName = item.song.Name
+		entry.FallbackArtist = item.song.Artist
+		chosen := item.song
+		return entry, t, &chosen, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("其他音源均无法提供音频")
+	}
+	return nil, "", nil, lastErr
+}
+
+func normalizeTitle(value string) string {
+	var builder strings.Builder
+	for _, r := range strings.ToLower(value) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			builder.WriteRune(r)
+		}
+	}
+	return builder.String()
+}
+
+func absInt(value int) int {
+	if value < 0 {
+		return -value
+	}
+	return value
 }
 
 func (m *StreamManager) provider(source string) (*provider, error) {

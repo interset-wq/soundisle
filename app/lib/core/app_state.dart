@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import 'api_client.dart';
 import 'models.dart';
+import 'storage_bridge.dart';
 
 class AppState extends ChangeNotifier {
   AppState(this.api);
@@ -20,6 +22,11 @@ class AppState extends ChangeNotifier {
   bool scanning = false;
   String? lastError;
   Timer? _downloadTimer;
+
+  /// Task id -> where the exported copy lives (Android only).
+  final Map<String, String> exportedLocations = {};
+  final Map<String, String> exportErrors = {};
+  final Set<String> _exportedTasks = {};
 
   Collection? get favorites {
     for (final collection in collections) {
@@ -83,6 +90,36 @@ class AppState extends ChangeNotifier {
   Future<void> refreshDownloads() async {
     downloads = await api.downloads();
     notifyListeners();
+    unawaited(_exportFinishedDownloads());
+  }
+
+  /// Copies finished downloads out of the app-private directory so the files
+  /// are visible in the system file manager / other music apps.
+  Future<void> _exportFinishedDownloads() async {
+    if (!StorageBridge.supported) return;
+    var changed = false;
+    for (final task in downloads) {
+      if (task.status != 'done' || task.path.isEmpty) continue;
+      if (_exportedTasks.contains(task.id)) continue;
+      _exportedTasks.add(task.id);
+      try {
+        final location = await StorageBridge.exportAudio(
+          path: task.path,
+          fileName: p.basename(task.path),
+        );
+        if (location != null) {
+          exportedLocations[task.id] = location;
+          changed = true;
+        }
+      } on StorageException catch (error) {
+        exportErrors[task.id] = error.message;
+        changed = true;
+      } catch (error) {
+        exportErrors[task.id] = '$error';
+        changed = true;
+      }
+    }
+    if (changed) notifyListeners();
   }
 
   Future<void> _pollDownloads() async {

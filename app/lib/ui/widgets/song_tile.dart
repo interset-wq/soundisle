@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
+import '../../core/storage_bridge.dart';
 import '../pages/playlist_page.dart';
 import '../theme.dart';
 import 'common.dart';
@@ -133,6 +134,9 @@ Future<void> playSongList(BuildContext context, List<Song> songs, int index) asy
   if (context.mounted && player.errorText != null) {
     showAppSnack(context, player.errorText!);
   }
+  if (context.mounted && player.playInfo?.fallback == true) {
+    showAppSnack(context, '原音源不可用，已自动切换到 ${app.sourceName(player.playInfo!.fallbackSource)}');
+  }
   if (context.mounted && player.playInfo?.preview == true) {
     showAppSnack(context, '当前为试听片段，登录或配置 Cookie 后可能获得完整歌曲');
   }
@@ -145,9 +149,12 @@ Future<void> showSongActions(BuildContext context, Song song) async {
   await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) {
       return SafeArea(
-        child: ListenableBuilder(
+        child: SingleChildScrollView(
+          child: ListenableBuilder(
           listenable: app,
           builder: (context, _) {
             final favorite = app.isFavorite(song);
@@ -235,7 +242,7 @@ Future<void> showSongActions(BuildContext context, Song song) async {
                     Navigator.pop(sheetContext);
                     try {
                       await app.downloadSongs([song]);
-                      if (context.mounted) showAppSnack(context, '已加入下载队列');
+                      if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
                     } catch (error) {
                       if (context.mounted) showAppSnack(context, '$error');
                     }
@@ -273,6 +280,7 @@ Future<void> showSongActions(BuildContext context, Song song) async {
               ],
             );
           },
+          ),
         ),
       );
     },
@@ -284,9 +292,12 @@ Future<void> showAddToCollection(BuildContext context, Song song) async {
   await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) {
       return SafeArea(
-        child: ListenableBuilder(
+        child: SingleChildScrollView(
+          child: ListenableBuilder(
           listenable: app,
           builder: (context, _) {
             final collections = app.collections.where((e) => true).toList();
@@ -325,6 +336,7 @@ Future<void> showAddToCollection(BuildContext context, Song song) async {
               ],
             );
           },
+          ),
         ),
       );
     },

@@ -5,9 +5,11 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
+import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 
 class TopListsPage extends StatefulWidget {
@@ -56,11 +58,13 @@ class _TopListsPageState extends State<TopListsPage> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final player = context.watch<PlayerController>();
     final sources = app.sources.where((e) => e.topList).toList();
     if (sources.isNotEmpty && !sources.any((e) => e.id == _source)) {
       _source = sources.first.id;
     }
     return Scaffold(
+      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
       appBar: AppBar(
         title: const Text('排行榜', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -238,6 +242,7 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
     final topList = widget.topList;
     final cover = app.api.coverUrl(topList.cover, source: topList.source);
     return Scaffold(
+      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: CustomScrollView(
@@ -329,7 +334,7 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                             ? null
                             : () async {
                                 await app.downloadSongs(_songs);
-                                if (context.mounted) showAppSnack(context, '已加入下载队列');
+                                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
                               },
                         icon: const Icon(Icons.download_rounded),
                       ),

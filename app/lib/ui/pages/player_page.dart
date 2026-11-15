@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
+import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
@@ -69,41 +70,50 @@ class _PlayerPageState extends State<PlayerPage> {
           SafeArea(
             child: Column(
               children: [
-                _topBar(context, song, app),
+                _topBar(context, song, app, player),
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final compact = constraints.maxHeight < 560;
+                      final topPadding = compact ? 4.0 : 10.0;
+                      final available = constraints.maxHeight - topPadding - 12;
+                      // Let the column fill the whole viewport and spread its
+                      // sections out, so tall phones do not leave an empty band
+                      // at the bottom. Short screens still scroll normally.
                       return SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(24, compact ? 4 : 10, 24, 12),
-                        child: Column(
-                          children: [
-                            if (_showLyrics)
-                              SizedBox(
-                                height: compact ? artSize * 0.9 : artSize,
-                                child: _lyricsView(context, player),
-                              )
-                            else
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: CoverArt(
-                                  url: cover,
-                                  size: artSize,
-                                  radius: 26,
-                                  seed: song.name,
-                                  heroTag: 'player-cover',
+                        padding: EdgeInsets.fromLTRB(24, topPadding, 24, 12),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: available > 0 ? available : 0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              if (_showLyrics)
+                                SizedBox(
+                                  height: compact ? artSize * 0.9 : artSize,
+                                  child: _lyricsView(context, player),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: CoverArt(
+                                    url: cover,
+                                    size: artSize,
+                                    radius: 26,
+                                    seed: song.name,
+                                    heroTag: 'player-cover',
+                                  ),
                                 ),
-                              ),
-                            if (!compact) const SizedBox(height: 26) else const SizedBox(height: 12),
-                            _titleRow(context, song, app, player),
-                            const SizedBox(height: 18),
-                            _progress(context, player, song),
-                            const SizedBox(height: 8),
-                            _controls(context, player),
-                            const SizedBox(height: 12),
-                            _bottomActions(context, player, app, song),
-                          ],
+                              SizedBox(height: compact ? 12 : 16),
+                              _titleRow(context, song, app, player),
+                              SizedBox(height: compact ? 8 : 12),
+                              _progress(context, player, song),
+                              SizedBox(height: compact ? 4 : 8),
+                              _controls(context, player),
+                              SizedBox(height: compact ? 8 : 12),
+                              _bottomActions(context, player, app, song),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -124,7 +134,7 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  Widget _topBar(BuildContext context, Song song, AppState app) {
+  Widget _topBar(BuildContext context, Song song, AppState app, PlayerController player) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
       child: Row(
@@ -139,6 +149,13 @@ class _PlayerPageState extends State<PlayerPage> {
                 Text('正在播放', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: Colors.white.withValues(alpha: 0.42))),
                 const SizedBox(height: 3),
                 SourceBadge(name: app.sourceName(song.source)),
+                if (player.playInfo?.fallback == true) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    '已自动切换到 ${app.sourceName(player.playInfo!.fallbackSource)}',
+                    style: TextStyle(fontSize: 9, color: const Color(0xFF54D68C).withValues(alpha: 0.9)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -296,7 +313,7 @@ class _PlayerPageState extends State<PlayerPage> {
           onTap: () async {
             try {
               await app.downloadSongs([song]);
-              if (context.mounted) showAppSnack(context, '已加入下载队列');
+              if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
             } catch (error) {
               if (context.mounted) showAppSnack(context, '$error');
             }

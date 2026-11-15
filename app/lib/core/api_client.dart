@@ -15,11 +15,26 @@ class ApiException implements Exception {
 }
 
 class PlayInfo {
-  const PlayInfo({required this.url, this.ext = '', this.preview = false});
+  const PlayInfo({
+    required this.url,
+    this.ext = '',
+    this.preview = false,
+    this.fallbackSource = '',
+    this.fallbackName = '',
+    this.fallbackArtist = '',
+  });
 
   final String url;
   final String ext;
   final bool preview;
+
+  /// Set when the requested platform could not serve the track and another
+  /// platform was used automatically.
+  final String fallbackSource;
+  final String fallbackName;
+  final String fallbackArtist;
+
+  bool get fallback => fallbackSource.isNotEmpty;
 }
 
 class QrSession {
@@ -225,7 +240,14 @@ class ApiClient {
     final json = await _request('POST', '/api/play', body: {'song': song.toJson()}, timeout: const Duration(minutes: 4)) as Map<String, dynamic>;
     final path = '${json['url'] ?? ''}';
     if (path.isEmpty) throw ApiException(0, '平台没有返回可播放地址');
-    return PlayInfo(url: '$baseUrl$path', ext: '${json['ext'] ?? ''}', preview: json['preview'] == true);
+    return PlayInfo(
+      url: '$baseUrl$path',
+      ext: '${json['ext'] ?? ''}',
+      preview: json['preview'] == true,
+      fallbackSource: '${json['resolvedSource'] ?? ''}',
+      fallbackName: '${json['resolvedName'] ?? ''}',
+      fallbackArtist: '${json['resolvedArtist'] ?? ''}',
+    );
   }
 
   Future<List<Collection>> collections() async {

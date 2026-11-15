@@ -8,9 +8,11 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
+import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 
 class PlaylistPage extends StatefulWidget {
@@ -91,6 +93,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     final isWide = screenWidth > 900;
 
     return Scaffold(
+      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: CustomScrollView(
@@ -217,7 +220,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                           : () async {
                               try {
                                 await app.downloadSongs(_songs);
-                                if (context.mounted) showAppSnack(context, '已加入下载队列');
+                                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
                               } catch (error) {
                                 if (context.mounted) showAppSnack(context, '$error');
                               }
@@ -289,8 +292,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheet) => SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
@@ -307,7 +313,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
               onTap: () async {
                 Navigator.pop(sheet);
                 await app.downloadSongs(_songs);
-                if (context.mounted) showAppSnack(context, '已加入下载队列');
+                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
               },
             ),
             if (widget.type == 'playlist' && widget.id.isNotEmpty)
@@ -320,6 +326,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
               ),
             const SizedBox(height: 8),
           ],
+          ),
         ),
       ),
     );
@@ -330,8 +337,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheet) => SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Padding(
@@ -352,6 +362,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
               ),
             const SizedBox(height: 8),
           ],
+          ),
         ),
       ),
     );

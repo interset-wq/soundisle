@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
+import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
+import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 
 class CollectionPage extends StatelessWidget {
@@ -37,6 +39,7 @@ class CollectionPage extends StatelessWidget {
     final cover = first == null ? '' : app.api.coverUrl(first.cover, source: first.source);
 
     return Scaffold(
+      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
       body: RefreshIndicator(
         onRefresh: app.refreshCollections,
         child: CustomScrollView(
@@ -213,7 +216,7 @@ class CollectionPage extends StatelessWidget {
               onTap: () async {
                 Navigator.pop(sheet);
                 await app.downloadSongs(collection.songs);
-                if (context.mounted) showAppSnack(context, '已加入下载队列');
+                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
               },
             ),
             if (!collection.isFavorites)

@@ -140,7 +140,7 @@ func (s *Service) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) handleSources(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"sources": SourceInfos(),
+		"sources":  SourceInfos(),
 		"defaults": s.Store.Settings().DefaultSearch,
 	})
 }
@@ -346,11 +346,15 @@ func (s *Service) handlePlay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"url":        "/api/stream/" + token,
-		"ext":        entry.Ext,
-		"preview":    entry.Preview,
-		"expiresIn":  int(streamTTL.Seconds()),
-		"source":     req.Song.Source,
+		"url":            "/api/stream/" + token,
+		"ext":            entry.Ext,
+		"preview":        entry.Preview,
+		"expiresIn":      int(streamTTL.Seconds()),
+		"source":         req.Song.Source,
+		"fallback":       entry.FallbackSource != "",
+		"resolvedSource": entry.FallbackSource,
+		"resolvedName":   entry.FallbackName,
+		"resolvedArtist": entry.FallbackArtist,
 	})
 }
 

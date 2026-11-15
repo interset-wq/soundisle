@@ -75,7 +75,11 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF2A2A3A),
+        backgroundColor: const Color(0xFF2E2E42),
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
+        actionTextColor: AppColors.accent,
+        closeIconColor: Colors.white70,
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -127,6 +131,12 @@ class AppTheme {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
         showDragHandle: true,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
+        actionTextColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
+import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
@@ -91,7 +92,9 @@ class _LocalTab extends StatelessWidget {
           _ListToolbar(
             icon: Icons.folder_rounded,
             title: '已下载到本地',
-            subtitle: app.settings.downloadDir.isEmpty ? '${songs.length} 首歌曲' : app.settings.downloadDir,
+            subtitle: StorageBridge.supported
+                ? '${songs.length} 首歌曲 · 副本在系统 Music/声屿'
+                : (app.settings.downloadDir.isEmpty ? '${songs.length} 首歌曲' : app.settings.downloadDir),
             actions: [
               TextButton.icon(
                 onPressed: app.scanning
@@ -353,7 +356,7 @@ class _DownloadsTab extends StatelessWidget {
           _ListToolbar(
             icon: Icons.download_rounded,
             title: active > 0 ? '正在下载 $active 个任务' : '下载任务',
-            subtitle: app.settings.downloadDir,
+            subtitle: StorageBridge.supported ? '完成后自动保存到系统 Music/声屿' : app.settings.downloadDir,
             actions: [
               if (tasks.isNotEmpty)
                 TextButton(
@@ -398,6 +401,8 @@ class _DownloadTile extends StatelessWidget {
     final cover = app.api.coverUrl(task.cover, source: task.source);
     final status = _statusText(task);
     final local = _localSong(app);
+    final exported = app.exportedLocations[task.id];
+    final exportError = app.exportErrors[task.id];
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -456,6 +461,31 @@ class _DownloadTile extends StatelessWidget {
                           minHeight: 3,
                           backgroundColor: Colors.white.withValues(alpha: 0.08),
                         ),
+                      ),
+                    ],
+                    if (task.status == 'done' && exported != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.folder_rounded, size: 11, color: Color(0xFF54D68C)),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              '已保存到 $exported',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF54D68C)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (task.status == 'done' && exportError != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '保存到系统音乐库失败：$exportError',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 10, color: Colors.orangeAccent.withValues(alpha: 0.85)),
                       ),
                     ],
                   ],

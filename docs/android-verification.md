@@ -2,6 +2,9 @@
 
 产物：`app/build/app/outputs/flutter-apk/app-release.apk`（debug 签名，仅验收用）。
 
+完整测试用例、排障决策树与日志采集方法见 [`testing-guide.md`](testing-guide.md)。
+遇到问题时可运行 `scripts/collect_android_diagnostics.sh` 一键取证。
+
 ## 第二版（1.0.1）重点回归
 
 | 编号    | 问题                         | 本版改动                                                                 | 验收方式                                                                       |

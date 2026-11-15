@@ -98,7 +98,9 @@ cd app && flutter build ios
 
 数据（设置、收藏、歌单、Cookie、下载）以 JSON 文件保存在应用数据目录，不使用 SQLite。
 
-Android 验收步骤见 `docs/android-verification.md`。
+Android 验收步骤见 `docs/android-verification.md`，完整测试与排障手册见
+`docs/testing-guide.md`。反馈问题时可用 `scripts/collect_android_diagnostics.sh`
+一键收集版本、日志、媒体会话与导出文件信息。
 
 ## 许可证
 

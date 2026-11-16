@@ -13,7 +13,8 @@
 - 首页局部刷新不能整页闪白；
 - 点歌直接进播放页（参考手机自带音乐 App）；
 - 下载记录重启后不能凭空消失；
-- 卸载重装后，之前导出到 `Music/声屿` 的歌曲能一键导回。
+- 卸载重装后，之前导出到 `Music/声屿` 的歌曲能一键导回；
+- 首页能直接看到最近播放过的歌曲。
 
 ## 2. 已完成
 
@@ -29,6 +30,7 @@
 | 新增-06 | 播放页倍速（0.75~2.0x）与定时停止（15/30/60 分钟）         | `player_controller.dart`、`player_page.dart`             |
 | 新增-08 | 从系统 `Music/声屿` 导入已导出歌曲（MediaStore + 权限）     | `MainActivity.kt`、`storage_bridge.dart`、`library_page.dart` |
 | 新增-09 | 播放队列支持长按拖动排序                                   | `player_controller.dart`、`player_page.dart`                 |
+| 新增-10 | 首页「最近播放」横滑卡片，本地持久化                       | `app_state.dart`、`home_page.dart`、`player_controller.dart` |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。

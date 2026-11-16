@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:soundisle/core/api_client.dart';
+import 'package:soundisle/core/app_state.dart';
 import 'package:soundisle/core/models.dart';
 import 'package:soundisle/core/player_controller.dart';
 
@@ -49,5 +52,21 @@ void main() {
     });
     expect(response.songs.length, 2);
     expect(response.songs.first.name, 'A');
+  });
+
+  test('recently played keeps newest first and de-duplicates', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    final app = AppState(ApiClient(baseUrl: 'http://127.0.0.1:1', token: 'test'));
+    const a = Song(id: '1', name: 'A', artist: 'X', source: 'netease');
+    const b = Song(id: '2', name: 'B', artist: 'Y', source: 'qq');
+
+    await app.recordPlayed(a);
+    await app.recordPlayed(b);
+    await app.recordPlayed(a);
+
+    expect(app.recentSongs.map((e) => e.name).toList(), ['A', 'B']);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList('library.recent_songs')?.length, 2);
   });
 }

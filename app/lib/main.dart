@@ -87,6 +87,7 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
       final appState = AppState(api);
       await appState.initialize();
       final player = PlayerController(api);
+      player.onSongStarted = appState.recordPlayed;
       if (!mounted) {
         player.dispose();
         api.close();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -30,11 +31,52 @@ class AppState extends ChangeNotifier {
   bool tapSongOpensPlayer = true;
   static const _prefTapSongOpensPlayer = 'ui.tap_song_opens_player';
 
+  /// Recently played songs, newest first. Persisted locally so the home page
+  /// can offer "继续听" without an account.
+  List<Song> recentSongs = const [];
+  static const _prefRecentSongs = 'library.recent_songs';
+  static const _recentLimit = 50;
+
   Future<void> _loadUiPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       tapSongOpensPlayer = prefs.getBool(_prefTapSongOpensPlayer) ?? true;
       notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> _loadRecentSongs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(_prefRecentSongs) ?? const [];
+      final songs = <Song>[];
+      for (final item in stored) {
+        try {
+          final decoded = jsonDecode(item);
+          if (decoded is Map) {
+            songs.add(Song.fromJson(decoded.cast<String, dynamic>()));
+          }
+        } catch (_) {}
+      }
+      recentSongs = songs;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// Called whenever a track starts, including auto-advance.
+  Future<void> recordPlayed(Song song) async {
+    final next = <Song>[
+      song,
+      ...recentSongs.where((e) => e.key != song.key),
+    ].take(_recentLimit).toList();
+    recentSongs = next;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _prefRecentSongs,
+        [for (final item in next) jsonEncode(item.toJson())],
+      );
     } catch (_) {}
   }
 
@@ -72,6 +114,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> initialize() async {
     unawaited(_loadUiPrefs());
+    unawaited(_loadRecentSongs());
     final results = await Future.wait([
       api.fetchSources(),
       api.fetchSettings(),

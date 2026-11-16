@@ -45,6 +45,10 @@ class PlayerController extends ChangeNotifier {
   bool lyricsLoading = false;
   bool shuffle = false;
 
+  /// Notified whenever a track starts playing, so the UI can keep a
+  /// "recently played" list without the controller knowing about storage.
+  void Function(Song song)? onSongStarted;
+
   /// Playback speed, 1.0 = normal. Applied when a new track starts too.
   double speed = 1.0;
 
@@ -137,6 +141,7 @@ class PlayerController extends ChangeNotifier {
     current = song;
     loading = true;
     errorText = null;
+    onSongStarted?.call(song);
     notifyListeners();
     try {
       final info = await api.play(song);

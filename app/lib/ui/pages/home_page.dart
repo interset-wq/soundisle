@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../core/player_controller.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/cover_art.dart';
 import '../widgets/song_tile.dart';
 import 'toplists_page.dart';
 
@@ -120,6 +121,31 @@ class _HomePageState extends State<HomePage> {
     final player = context.watch<PlayerController>();
     final local = app.localSongs.take(6).toList();
     final rows = <Widget>[
+      if (app.recentSongs.isNotEmpty) ...[
+        SectionHeader(
+          title: '最近播放',
+          subtitle: '继续上次的旋律',
+          action: '播放全部',
+          onAction: () => playSongList(context, app.recentSongs, 0),
+        ),
+        SizedBox(
+          height: 176,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: app.recentSongs.take(12).length,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final song = app.recentSongs[index];
+              return _RecentSongCard(
+                song: song,
+                coverUrl: app.api.coverUrl(song.cover, source: song.source),
+                onTap: () => playSongList(context, app.recentSongs, index),
+              );
+            },
+          ),
+        ),
+      ],
       if (_recommend.isNotEmpty) ...[
         SectionHeader(
           title: '为你推荐',
@@ -368,6 +394,45 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RecentSongCard extends StatelessWidget {
+  const _RecentSongCard({required this.song, required this.coverUrl, required this.onTap});
+
+  final Song song;
+  final String coverUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CoverArt(url: coverUrl, size: 112, radius: 14, seed: song.name),
+            const SizedBox(height: 8),
+            Text(
+              song.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              song.artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.42)),
+            ),
+          ],
+        ),
       ),
     );
   }

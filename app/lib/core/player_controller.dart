@@ -256,6 +256,23 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Moves an entry inside the queue, keeping the playing index correct.
+  void moveQueueItem(int from, int to) {
+    if (from == to) return;
+    if (from < 0 || from >= queue.length) return;
+    if (to < 0 || to >= queue.length) return;
+    final song = queue.removeAt(from);
+    queue.insert(to, song);
+    if (index == from) {
+      index = to;
+    } else if (from < index && to >= index) {
+      index -= 1;
+    } else if (from > index && to <= index) {
+      index += 1;
+    }
+    notifyListeners();
+  }
+
   int get currentLyricIndex {
     if (lyrics.isEmpty) return -1;
     final pos = position;

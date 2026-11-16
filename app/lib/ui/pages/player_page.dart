@@ -433,7 +433,8 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  Widget _action(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {    return InkWell(
+  Widget _action(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Padding(
@@ -533,17 +534,23 @@ class _PlayerPageState extends State<PlayerPage> {
                           const Text('播放队列', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                           const SizedBox(width: 8),
                           Text('${player.queue.length} 首', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+                          const Spacer(),
+                          Text('长按拖动排序', style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.3))),
                         ],
                       ),
                     ),
                     Expanded(
-                      child: ListView.builder(
-                        controller: scrollController,
+                      child: ReorderableListView.builder(
+                        scrollController: scrollController,
                         itemCount: player.queue.length,
+                        onReorderItem: (oldIndex, newIndex) {
+                          player.moveQueueItem(oldIndex, newIndex);
+                        },
                         itemBuilder: (context, index) {
                           final song = player.queue[index];
                           final active = index == player.index;
                           return ListTile(
+                            key: ValueKey('queue-$index'),
                             selected: active,
                             leading: active
                                 ? const Icon(Icons.graphic_eq_rounded, color: AppColors.accent)

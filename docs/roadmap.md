@@ -28,6 +28,7 @@
 | 新增-07 | 下载断点续传（HTTP Range），`.part` 暂存与自动清理         | `backend/internal/api/downloads.go`、`downloads_resume_test.go` |
 | 新增-06 | 播放页倍速（0.75~2.0x）与定时停止（15/30/60 分钟）         | `player_controller.dart`、`player_page.dart`             |
 | 新增-08 | 从系统 `Music/声屿` 导入已导出歌曲（MediaStore + 权限）     | `MainActivity.kt`、`storage_bridge.dart`、`library_page.dart` |
+| 新增-09 | 播放队列支持长按拖动排序                                   | `player_controller.dart`、`player_page.dart`                 |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。
@@ -42,7 +43,6 @@
 
 | 优先级 | 候选                                                     | 说明                                                         |
 | ------ | -------------------------------------------------------- | ------------------------------------------------------------ |
-| P1     | 播放队列页                                               | 可查看/拖动/删除「接下来播放」，目前只能上一首/下一首        |
 | P2     | 本地音乐批量管理                                         | 多选删除、按目录/歌手分组、手动「重新扫描」入口更显眼        |
 | P2     | 桌面端打包补齐（Linux 优先）                             | 需要 `libgtk-3-dev` 等依赖；CI 增加桌面构建 job              |
 | P3     | 浅色主题                                                 | 目前固定深色；需要统一 `AppColors` 并逐页检查对比度          |

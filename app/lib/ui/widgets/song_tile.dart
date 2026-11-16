@@ -10,6 +10,7 @@ import '../pages/playlist_page.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'cover_art.dart';
+import 'player_route.dart';
 
 class SongTile extends StatelessWidget {
   const SongTile({
@@ -125,11 +126,13 @@ class SongTile extends StatelessWidget {
   }
 }
 
-Future<void> playSongList(BuildContext context, List<Song> songs, int index) async {
+Future<void> playSongList(BuildContext context, List<Song> songs, int index,
+    {bool openPlayer = true}) async {
   if (songs.isEmpty) return;
   final player = context.read<PlayerController>();
   final app = context.read<AppState>();
   final safeIndex = index.clamp(0, songs.length - 1);
+  // Start playback first so the player page has metadata to show immediately.
   await player.playSong(songs[safeIndex], queue: songs, startIndex: safeIndex);
   if (context.mounted && player.errorText != null) {
     showAppSnack(context, player.errorText!);
@@ -141,6 +144,9 @@ Future<void> playSongList(BuildContext context, List<Song> songs, int index) asy
     showAppSnack(context, '当前为试听片段，登录或配置 Cookie 后可能获得完整歌曲');
   }
   app.refreshDownloads();
+  if (openPlayer && app.tapSongOpensPlayer && context.mounted) {
+    await openPlayerPage(context);
+  }
 }
 
 Future<void> showSongActions(BuildContext context, Song song) async {

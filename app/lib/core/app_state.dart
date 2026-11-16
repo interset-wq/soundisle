@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'models.dart';
@@ -22,6 +23,29 @@ class AppState extends ChangeNotifier {
   bool scanning = false;
   String? lastError;
   Timer? _downloadTimer;
+
+  /// Whether tapping a song opens the full now-playing page right away.
+  /// Purely a UI preference, so it lives in shared_preferences instead of the
+  /// backend settings file.
+  bool tapSongOpensPlayer = true;
+  static const _prefTapSongOpensPlayer = 'ui.tap_song_opens_player';
+
+  Future<void> _loadUiPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      tapSongOpensPlayer = prefs.getBool(_prefTapSongOpensPlayer) ?? true;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> setTapSongOpensPlayer(bool value) async {
+    tapSongOpensPlayer = value;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefTapSongOpensPlayer, value);
+    } catch (_) {}
+  }
 
   /// Task id -> where the exported copy lives (Android only).
   final Map<String, String> exportedLocations = {};
@@ -47,6 +71,7 @@ class AppState extends ChangeNotifier {
   String sourceName(String id) => sourceInfo(id)?.name ?? id;
 
   Future<void> initialize() async {
+    unawaited(_loadUiPrefs());
     final results = await Future.wait([
       api.fetchSources(),
       api.fetchSettings(),
@@ -207,6 +232,11 @@ class AppState extends ChangeNotifier {
 
   Future<void> removeDownload(String id) async {
     await api.removeDownload(id);
+    await refreshDownloads();
+  }
+
+  Future<void> retryDownload(String id) async {
+    await api.retryDownload(id);
     await refreshDownloads();
   }
 

@@ -491,6 +491,19 @@ class _DownloadTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (task.status == 'failed')
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '重试',
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  onPressed: () async {
+                    try {
+                      await app.retryDownload(task.id);
+                    } catch (error) {
+                      if (context.mounted) showAppSnack(context, '重试失败：$error');
+                    }
+                  },
+                ),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 tooltip: '移除任务',

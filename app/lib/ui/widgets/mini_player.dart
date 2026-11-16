@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../core/player_controller.dart';
-import '../pages/player_page.dart';
 import 'cover_art.dart';
+import 'player_route.dart';
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
@@ -19,16 +19,7 @@ class MiniPlayer extends StatelessWidget {
     return Material(
       color: const Color(0xFF16161F),
       child: InkWell(
-        onTap: () => Navigator.of(context).push(PageRouteBuilder(
-          opaque: false,
-          pageBuilder: (_, _, _) => const PlayerPage(),
-          transitionsBuilder: (_, animation, _, child) => SlideTransition(
-            position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-            ),
-            child: child,
-          ),
-        )),
+        onTap: () => openPlayerPage(context),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

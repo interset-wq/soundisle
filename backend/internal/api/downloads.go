@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -30,30 +32,129 @@ type DownloadTask struct {
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	Finished  *time.Time `json:"finishedAt,omitempty"`
-	song      model.Song
-	canceled  bool
+	// Song is kept so history survives restarts and a failed task can be
+	// retried without re-searching for the track.
+	Song     model.Song `json:"song"`
+	canceled bool
 }
 
 type DownloadManager struct {
-	mu       sync.RWMutex
-	tasks    map[string]*DownloadTask
-	order    []string
-	queue    chan string
-	store    *Store
-	streams  *StreamManager
+	mu        sync.RWMutex
+	tasks     map[string]*DownloadTask
+	order     []string
+	queue     chan string
+	store     *Store
+	streams   *StreamManager
 	withLyric bool
+
+	// Downloads used to live only in memory, so killing the app wiped the
+	// history. Records are now mirrored to downloads.json and reloaded on
+	// startup; interrupted tasks are surfaced as failed with a clear reason.
+	persistPath string
+	dirty       bool
 }
+
+const downloadHistoryLimit = 300
 
 func NewDownloadManager(store *Store, streams *StreamManager) *DownloadManager {
 	m := &DownloadManager{
-		tasks:    map[string]*DownloadTask{},
-		queue:    make(chan string, 1024),
-		store:    store,
-		streams:  streams,
+		tasks:     map[string]*DownloadTask{},
+		queue:     make(chan string, 1024),
+		store:     store,
+		streams:   streams,
 		withLyric: true,
 	}
+	if store != nil && store.path != "" {
+		m.persistPath = filepath.Join(filepath.Dir(store.path), "downloads.json")
+	}
+	m.load()
 	go m.worker()
+	go m.saveLoop()
 	return m
+}
+
+func (m *DownloadManager) load() {
+	if m.persistPath == "" {
+		return
+	}
+	raw, err := os.ReadFile(m.persistPath)
+	if err != nil || len(raw) == 0 {
+		return
+	}
+	var records []DownloadTask
+	if err := json.Unmarshal(raw, &records); err != nil {
+		return
+	}
+	sort.SliceStable(records, func(i, j int) bool {
+		return records[i].CreatedAt.Before(records[j].CreatedAt)
+	})
+	now := time.Now()
+	loaded := make([]*DownloadTask, 0, len(records))
+	for i := range records {
+		task := records[i]
+		if strings.TrimSpace(task.ID) == "" {
+			continue
+		}
+		switch task.Status {
+		case "waiting", "downloading":
+			// The worker died with the process; nothing is downloading now.
+			finished := now
+			task.Status = "failed"
+			task.Error = "下载被中断（App 已退出），可重试"
+			task.Finished = &finished
+		case "canceled":
+			continue
+		}
+		task.canceled = false
+		loaded = append(loaded, &task)
+	}
+	if len(loaded) > downloadHistoryLimit {
+		loaded = loaded[len(loaded)-downloadHistoryLimit:]
+	}
+	m.mu.Lock()
+	for _, task := range loaded {
+		m.tasks[task.ID] = task
+		m.order = append(m.order, task.ID)
+	}
+	m.mu.Unlock()
+	m.flush()
+}
+
+func (m *DownloadManager) saveLoop() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		m.flush()
+	}
+}
+
+// flush writes the current history to disk at most once per dirty period, so
+// per-chunk progress updates stay cheap.
+func (m *DownloadManager) flush() {
+	m.mu.Lock()
+	if !m.dirty || m.persistPath == "" {
+		m.mu.Unlock()
+		return
+	}
+	m.dirty = false
+	path := m.persistPath
+	snapshot := make([]DownloadTask, 0, len(m.order))
+	for _, id := range m.order {
+		if task, ok := m.tasks[id]; ok {
+			snapshot = append(snapshot, *task)
+		}
+	}
+	m.mu.Unlock()
+
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		return
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
 }
 
 func (m *DownloadManager) Enqueue(songs []model.Song) []DownloadTask {
@@ -68,12 +169,20 @@ func (m *DownloadManager) Enqueue(songs []model.Song) []DownloadTask {
 		task := &DownloadTask{
 			ID: id, Name: song.Name, Artist: song.Artist, Album: song.Album,
 			Cover: song.Cover, Source: song.Source, Status: "waiting",
-			CreatedAt: now, UpdatedAt: now, song: song,
+			CreatedAt: now, UpdatedAt: now, Song: song,
 		}
 		m.tasks[id] = task
 		m.order = append(m.order, id)
 		out = append(out, *task)
 	}
+	if len(m.order) > downloadHistoryLimit {
+		drop := len(m.order) - downloadHistoryLimit
+		for _, id := range m.order[:drop] {
+			delete(m.tasks, id)
+		}
+		m.order = append([]string(nil), m.order[drop:]...)
+	}
+	m.dirty = true
 	m.mu.Unlock()
 	for _, task := range out {
 		m.queue <- task.ID
@@ -99,6 +208,7 @@ func (m *DownloadManager) Update(id string, fn func(*DownloadTask)) {
 	if task, ok := m.tasks[id]; ok {
 		fn(task)
 		task.UpdatedAt = time.Now()
+		m.dirty = true
 	}
 }
 
@@ -126,6 +236,40 @@ func (m *DownloadManager) Remove(id string) {
 			break
 		}
 	}
+	m.dirty = true
+}
+
+// Retry re-queues a failed task. Completed tasks are rejected so a stray tap
+// cannot download the same song twice.
+func (m *DownloadManager) Retry(id string) (DownloadTask, error) {
+	m.mu.Lock()
+	task, ok := m.tasks[id]
+	if !ok {
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("下载任务不存在")
+	}
+	switch task.Status {
+	case "failed":
+	case "waiting", "downloading":
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("任务正在进行中")
+	default:
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("已完成的任务无需重试")
+	}
+	task.Status = "waiting"
+	task.Error = ""
+	task.Total = 0
+	task.Received = 0
+	task.Finished = nil
+	task.canceled = false
+	task.UpdatedAt = time.Now()
+	snapshot := *task
+	m.dirty = true
+	m.mu.Unlock()
+
+	m.queue <- id
+	return snapshot, nil
 }
 
 func (m *DownloadManager) worker() {
@@ -150,7 +294,7 @@ func (m *DownloadManager) process(id string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	entry, _, err := m.streams.Resolve(ctx, task.song)
+	entry, _, err := m.streams.Resolve(ctx, task.Song)
 	if err != nil {
 		m.fail(id, err)
 		return
@@ -159,17 +303,21 @@ func (m *DownloadManager) process(id string) {
 	if ext == "" {
 		ext = "mp3"
 	}
-	filename := buildFilename(settings.FilenameTemplate, task.song, ext)
+	filename := buildFilename(settings.FilenameTemplate, task.Song, ext)
 	outDir := settings.DownloadDir
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		m.fail(id, err)
 		return
 	}
 	target := uniquePath(filepath.Join(outDir, filename))
+	// Download into a .part file first: a killed process then leaves no
+	// truncated file that the local library would happily list as a song.
+	staging := target + ".part"
+	defer os.Remove(staging)
 
 	var written int64
 	if entry.FilePath != "" {
-		if err := copyFile(entry.FilePath, target, func(n int64) {
+		if err := copyFile(entry.FilePath, staging, func(n int64) {
 			m.Update(id, func(t *DownloadTask) { t.Received = n })
 		}, func() bool {
 			current, ok := m.get(id)
@@ -178,7 +326,7 @@ func (m *DownloadManager) process(id string) {
 			m.fail(id, err)
 			return
 		}
-		stat, _ := os.Stat(target)
+		stat, _ := os.Stat(staging)
 		if stat != nil {
 			written = stat.Size()
 		}
@@ -206,7 +354,7 @@ func (m *DownloadManager) process(id string) {
 		}
 		total := resp.ContentLength
 		m.Update(id, func(t *DownloadTask) { t.Total = total })
-		f, err := os.Create(target)
+		f, err := os.Create(staging)
 		if err != nil {
 			m.fail(id, err)
 			return
@@ -216,7 +364,7 @@ func (m *DownloadManager) process(id string) {
 			current, ok := m.get(id)
 			if !ok || current.canceled {
 				f.Close()
-				os.Remove(target)
+				os.Remove(staging)
 				return
 			}
 			n, readErr := resp.Body.Read(buf)
@@ -234,7 +382,7 @@ func (m *DownloadManager) process(id string) {
 			}
 			if readErr != nil {
 				f.Close()
-				os.Remove(target)
+				os.Remove(staging)
 				m.fail(id, readErr)
 				return
 			}
@@ -245,9 +393,14 @@ func (m *DownloadManager) process(id string) {
 		}
 	}
 
+	if err := os.Rename(staging, target); err != nil {
+		m.fail(id, err)
+		return
+	}
+
 	if m.withLyric {
-		if p, err := m.streams.provider(task.song.Source); err == nil && p.lyric != nil {
-			if lrc, err := p.lyric(&task.song); err == nil && strings.TrimSpace(lrc) != "" {
+		if p, err := m.streams.provider(task.Song.Source); err == nil && p.lyric != nil {
+			if lrc, err := p.lyric(&task.Song); err == nil && strings.TrimSpace(lrc) != "" {
 				lrcPath := strings.TrimSuffix(target, filepath.Ext(target)) + ".lrc"
 				_ = os.WriteFile(lrcPath, []byte(lrc), 0o644)
 			}

@@ -191,11 +191,24 @@ class _SettingsPageState extends State<SettingsPage> {
           _sectionTitle('外观', '当前版本以深色界面为主'),
           SectionCard(
             padding: EdgeInsets.zero,
-            child: ListTile(
-              leading: const Icon(Icons.dark_mode_rounded),
-              title: const Text('深色模式'),
-              subtitle: const Text('跟随系统 / 浅色主题正在适配'),
-              trailing: Switch(value: true, onChanged: null),
+            child: Column(
+              children: [
+                const ListTile(
+                  leading: Icon(Icons.dark_mode_rounded),
+                  title: Text('深色模式'),
+                  subtitle: Text('跟随系统 / 浅色主题正在适配'),
+                  trailing: Switch(value: true, onChanged: null),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.open_in_full_rounded),
+                  title: const Text('点歌后进入播放页'),
+                  subtitle: const Text('关闭后点歌只开始播放，停留当前列表'),
+                  trailing: Switch(
+                    value: app.tapSongOpensPlayer,
+                    onChanged: (value) => app.setTapSongOpensPlayer(value),
+                  ),
+                ),
+              ],
             ),
           ),
           _sectionTitle('关于', null),

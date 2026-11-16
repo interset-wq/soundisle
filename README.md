@@ -116,4 +116,5 @@ Android 验收步骤见 `docs/android-verification.md`，完整测试与排障�
 
 - Android 使用稳定 release 签名（1.0.2 起），仅构建 arm64-v8a
 - 媒体源可用性取决于上游 `music-lib` 与各平台 Cookie 状态
+- 下载不支持断点续传：中断后重试会从头开始
 - Windows / macOS 包需要在对应系统或 CI 上构建

@@ -326,6 +326,8 @@ class ApiClient {
 
   Future<void> removeDownload(String id) => _request('DELETE', '/api/downloads/$id');
 
+  Future<void> retryDownload(String id) => _request('POST', '/api/downloads/$id/retry');
+
   Future<Map<String, String>> cookies() async {
     final json = await _request('GET', '/api/cookies') as Map<String, dynamic>;
     final raw = json['cookies'];

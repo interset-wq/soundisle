@@ -39,6 +39,30 @@ class StorageBridge {
     }
   }
 
+  /// Restores tracks that were exported to `Music/声屿` into [dir].
+  ///
+  /// Only usable on Android: the Kotlin side queries MediaStore (or the public
+  /// folder on older releases) and copies matching files back into the app's
+  /// private download directory, which is what the Go core scans.
+  static Future<ImportSummary?> importExported({required String dir}) async {
+    if (!supported) return null;
+    try {
+      final result =
+          await _channel.invokeMapMethod<String, dynamic>('importExported', {'dir': dir});
+      if (result == null) return null;
+      return ImportSummary(
+        found: (result['found'] as num?)?.toInt() ?? 0,
+        imported: (result['imported'] as num?)?.toInt() ?? 0,
+        skipped: (result['skipped'] as num?)?.toInt() ?? 0,
+        failed: (result['failed'] as num?)?.toInt() ?? 0,
+      );
+    } on PlatformException catch (error) {
+      throw StorageException(error.message ?? '从 Music/声屿 导入失败');
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   static String mimeForPath(String path) {
     switch (p.extension(path).toLowerCase().replaceFirst('.', '')) {
       case 'flac':
@@ -67,4 +91,27 @@ class StorageException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Outcome of [StorageBridge.importExported].
+class ImportSummary {
+  const ImportSummary({
+    required this.found,
+    required this.imported,
+    required this.skipped,
+    required this.failed,
+  });
+
+  final int found;
+  final int imported;
+  final int skipped;
+  final int failed;
+
+  String get message {
+    if (found == 0) return 'Music/声屿 中没有找到歌曲';
+    final parts = <String>['导入 $imported 首'];
+    if (skipped > 0) parts.add('跳过 $skipped 首（已在库中）');
+    if (failed > 0) parts.add('失败 $failed 首');
+    return parts.join(' · ');
+  }
 }

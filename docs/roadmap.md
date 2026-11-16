@@ -12,7 +12,8 @@
 - 播放时必须有通知栏/锁屏控制；
 - 首页局部刷新不能整页闪白；
 - 点歌直接进播放页（参考手机自带音乐 App）；
-- 下载记录重启后不能凭空消失。
+- 下载记录重启后不能凭空消失；
+- 卸载重装后，之前导出到 `Music/声屿` 的歌曲能一键导回。
 
 ## 2. 已完成
 
@@ -26,6 +27,7 @@
 | 新增-05 | 下载历史持久化、中断任务可重试、`.part` 暂存避免半截文件   | `backend/internal/api/downloads.go`                      |
 | 新增-07 | 下载断点续传（HTTP Range），`.part` 暂存与自动清理         | `backend/internal/api/downloads.go`、`downloads_resume_test.go` |
 | 新增-06 | 播放页倍速（0.75~2.0x）与定时停止（15/30/60 分钟）         | `player_controller.dart`、`player_page.dart`             |
+| 新增-08 | 从系统 `Music/声屿` 导入已导出歌曲（MediaStore + 权限）     | `MainActivity.kt`、`storage_bridge.dart`、`library_page.dart` |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。

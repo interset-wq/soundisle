@@ -80,6 +80,20 @@ class _LocalTab extends StatelessWidget {
 
   final VoidCallback onOpenSearch;
 
+  Future<void> _importFromMusic(BuildContext context, AppState app) async {
+    try {
+      final summary = await app.importExportedMusic();
+      if (!context.mounted) return;
+      if (summary == null) {
+        showAppSnack(context, '当前平台不支持从系统音乐目录导入');
+      } else {
+        showAppSnack(context, summary.message);
+      }
+    } catch (error) {
+      if (context.mounted) showAppSnack(context, '$error');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -96,6 +110,15 @@ class _LocalTab extends StatelessWidget {
                 ? '${songs.length} 首歌曲 · 副本在系统 Music/声屿'
                 : (app.settings.downloadDir.isEmpty ? '${songs.length} 首歌曲' : app.settings.downloadDir),
             actions: [
+              if (StorageBridge.supported)
+                IconButton(
+                  tooltip: '从 Music/声屿 导入',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: app.importingExported ? null : () => _importFromMusic(context, app),
+                  icon: app.importingExported
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.library_music_rounded, size: 20),
+                ),
               TextButton.icon(
                 onPressed: app.scanning
                     ? null
@@ -125,8 +148,22 @@ class _LocalTab extends StatelessWidget {
                 ? EmptyState(
                     icon: Icons.folder_open_rounded,
                     title: '还没有本地音乐',
-                    subtitle: '从歌曲菜单下载后，文件会保存到下载目录并自动出现在这里',
-                    action: FilledButton(onPressed: onOpenSearch, child: const Text('去搜索音乐')),
+                    subtitle: StorageBridge.supported
+                        ? '从歌曲菜单下载，或把之前保存在 Music/声屿 的歌曲导回来'
+                        : '从歌曲菜单下载后，文件会保存到下载目录并自动出现在这里',
+                    action: Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton(onPressed: onOpenSearch, child: const Text('去搜索音乐')),
+                        if (StorageBridge.supported)
+                          OutlinedButton(
+                            onPressed: app.importingExported ? null : () => _importFromMusic(context, app),
+                            child: Text(app.importingExported ? '导入中…' : '从 Music/声屿 导入'),
+                          ),
+                      ],
+                    ),
                   )
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),

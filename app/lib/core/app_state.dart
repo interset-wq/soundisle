@@ -112,6 +112,29 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// True while `Music/声屿` is being copied back into the private library.
+  bool importingExported = false;
+
+  /// Restores local music from the shared `Music/声屿` folder, e.g. after a
+  /// reinstall wiped the app-private download directory.
+  Future<ImportSummary?> importExportedMusic() async {
+    if (!StorageBridge.supported) return null;
+    final dir = settings.downloadDir;
+    if (dir.isEmpty) return null;
+    importingExported = true;
+    notifyListeners();
+    try {
+      final summary = await StorageBridge.importExported(dir: dir);
+      if (summary != null && summary.imported > 0) {
+        await rescanLibrary();
+      }
+      return summary;
+    } finally {
+      importingExported = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshDownloads() async {
     downloads = await api.downloads();
     notifyListeners();

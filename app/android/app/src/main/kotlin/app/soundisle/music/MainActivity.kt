@@ -2,6 +2,7 @@ package app.soundisle.music
 
 import android.Manifest
 import android.app.NotificationManager
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -75,6 +76,7 @@ class MainActivity : AudioServiceActivity() {
     private fun handleStorage(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "exportAudio" -> exportAudio(call, result)
+            "importExported" -> importExported(call, result)
             else -> result.notImplemented()
         }
     }
@@ -191,6 +193,192 @@ class MainActivity : AudioServiceActivity() {
         MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mimeType), null)
         return target.absolutePath
     }
+
+    private class ImportCandidate(
+        val name: String,
+        val size: Long,
+        val open: () -> java.io.InputStream,
+    )
+
+    private data class PendingImport(val dir: String, val result: MethodChannel.Result)
+
+    private var pendingImport: PendingImport? = null
+
+    private fun audioReadPermission(): String = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> Manifest.permission.READ_MEDIA_AUDIO
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> Manifest.permission.READ_EXTERNAL_STORAGE
+        else -> Manifest.permission.WRITE_EXTERNAL_STORAGE
+    }
+
+    /**
+     * Copies tracks that were exported to `Music/声屿` back into the app-private
+     * download directory. Uninstalling clears the private directory, so this is
+     * how a fresh install restores the local library.
+     */
+    private fun importExported(call: MethodCall, result: MethodChannel.Result) {
+        val dir = call.argument<String>("dir")
+        if (dir.isNullOrBlank()) {
+            result.error("bad_args", "dir is required", null)
+            return
+        }
+        val permission = audioReadPermission()
+        val granted = ActivityCompat.checkSelfPermission(this, permission) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            pendingImport?.result?.error("superseded", "新的导入请求已开始", null)
+            pendingImport = PendingImport(dir, result)
+            ActivityCompat.requestPermissions(this, arrayOf(permission), 4302)
+            return
+        }
+        runImport(dir, result)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != 4302) return
+        val pending = pendingImport ?: return
+        pendingImport = null
+        val granted = grantResults.isNotEmpty() &&
+            grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+        if (granted) {
+            runImport(pending.dir, pending.result)
+        } else {
+            pending.result.error(
+                "permission_denied",
+                "需要「音乐和音频」权限才能读取 Music/声屿 中的文件",
+                null,
+            )
+        }
+    }
+
+    private fun runImport(dir: String, result: MethodChannel.Result) {
+        Thread {
+            try {
+                val summary = importFromMusicFolder(File(dir))
+                mainHandler.post { result.success(summary) }
+            } catch (error: Throwable) {
+                mainHandler.post {
+                    result.error("import_failed", error.message ?: error.toString(), null)
+                }
+            }
+        }.start()
+    }
+
+    private fun importFromMusicFolder(targetDir: File): Map<String, Any> {
+        if (!targetDir.isDirectory && !targetDir.mkdirs()) {
+            throw IOException("无法创建下载目录：${targetDir.absolutePath}")
+        }
+        // Leftovers from an interrupted import.
+        targetDir.listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".import") }
+            ?.forEach { it.delete() }
+        val candidates = listExportedAudio()
+        var imported = 0
+        var skipped = 0
+        var failed = 0
+        for (candidate in candidates) {
+            var temp: File? = null
+            try {
+                val target = resolveImportTarget(targetDir, candidate.name, candidate.size)
+                if (target == null) {
+                    skipped++
+                    continue
+                }
+                // Stage under a temp name so an interrupted import never shows
+                // up as a truncated song in the local library.
+                val staging = File(targetDir, target.name + ".import")
+                temp = staging
+                staging.delete()
+                candidate.open().use { input ->
+                    staging.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
+                }
+                if (!staging.renameTo(target)) {
+                    throw IOException("无法写入 ${target.name}")
+                }
+                imported++
+            } catch (_: Throwable) {
+                temp?.delete()
+                failed++
+            }
+        }
+        return mapOf(
+            "found" to candidates.size,
+            "imported" to imported,
+            "skipped" to skipped,
+            "failed" to failed,
+        )
+    }
+
+    /** Returns null when an identical file is already imported. */
+    private fun resolveImportTarget(dir: File, rawName: String, size: Long): File? {
+        val name = rawName.substringAfterLast('/').substringAfterLast('\\').ifBlank { "audio.mp3" }
+        val base = File(name).nameWithoutExtension.ifBlank { "audio" }
+        val ext = File(name).extension.ifBlank { "mp3" }
+        for (index in 0..99) {
+            val candidate = File(dir, if (index == 0) "$base.$ext" else "$base ($index).$ext")
+            if (!candidate.exists()) return candidate
+            if (candidate.isFile && candidate.length() == size) return null
+        }
+        throw IOException("同名文件过多：$base.$ext")
+    }
+
+    private fun listExportedAudio(): List<ImportCandidate> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val out = mutableListOf<ImportCandidate>()
+            val projection = arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                MediaStore.Audio.Media.SIZE,
+            )
+            val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} LIKE ?"
+            contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                arrayOf("Music/声屿/%"),
+                null,
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(nameColumn) ?: continue
+                    if (!isAudioName(name)) continue
+                    val uri = ContentUris.withAppendedId(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        cursor.getLong(idColumn),
+                    )
+                    out.add(
+                        ImportCandidate(name, cursor.getLong(sizeColumn)) {
+                            contentResolver.openInputStream(uri)
+                                ?: throw IOException("无法读取 $name")
+                        },
+                    )
+                }
+            }
+            return out
+        }
+        val folder = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+            "声屿",
+        )
+        if (!folder.isDirectory) return emptyList()
+        return folder.listFiles()
+            ?.filter { it.isFile && isAudioName(it.name) }
+            ?.map { file ->
+                ImportCandidate(file.name, file.length()) { file.inputStream() }
+            }
+            ?: emptyList()
+    }
+
+    private fun isAudioName(name: String): Boolean =
+        name.substringAfterLast('.', "").lowercase() in setOf(
+            "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma",
+        )
 
     private fun startCore(call: MethodCall, result: MethodChannel.Result) {
         val dataDir = call.argument<String>("dataDir")

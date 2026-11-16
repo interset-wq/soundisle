@@ -9,6 +9,12 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"/>
+    <!-- Reading files we exported to Music/声屿 after a reinstall (the app no
+         longer owns them). Android 13 splits this into READ_MEDIA_AUDIO. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <application
         android:label="声屿"
         android:name="${applicationName}"

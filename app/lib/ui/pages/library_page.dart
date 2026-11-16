@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/local_grouping.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
 import '../../core/storage_bridge.dart';
@@ -87,9 +88,35 @@ class _LocalTab extends StatefulWidget {
 class _LocalTabState extends State<_LocalTab> {
   bool _selecting = false;
   final Set<String> _selected = {};
+  LocalGroupMode _groupMode = LocalGroupMode.none;
+  final Set<String> _expandedGroups = {};
 
   List<Song> _selectedSongs(List<Song> songs) =>
       songs.where((song) => _selected.contains(song.key)).toList();
+
+  void _setGroupMode(LocalGroupMode mode) {
+    setState(() {
+      _groupMode = mode;
+      _expandedGroups.clear();
+    });
+  }
+
+  void _toggleGroup(SongGroup group) {
+    setState(() {
+      final keys = group.songs.map((song) => song.key).toList();
+      if (keys.every(_selected.contains)) {
+        _selected.removeAll(keys);
+      } else {
+        _selected.addAll(keys);
+      }
+    });
+  }
+
+  void _toggleExpanded(SongGroup group) {
+    setState(() {
+      if (!_expandedGroups.remove(group.key)) _expandedGroups.add(group.key);
+    });
+  }
 
   void _enterSelection([Song? song]) {
     setState(() {
@@ -176,6 +203,7 @@ class _LocalTabState extends State<_LocalTab> {
             _selectionToolbar(songs, picked, allSelected)
           else
             _listToolbar(app, songs),
+          if (songs.isNotEmpty && !_selecting) _modeChips(),
           Expanded(
             child: songs.isEmpty
                 ? EmptyState(
@@ -198,49 +226,141 @@ class _LocalTabState extends State<_LocalTab> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                    padding: const EdgeInsets.only(bottom: 130),
-                    itemCount: songs.length,
-                    itemBuilder: (context, index) {
-                      final song = songs[index];
-                      final selected = _selecting
-                          ? _selected.contains(song.key)
-                          : player.current?.key == song.key;
-                      return SongTile(
-                        song: song,
-                        queue: songs,
-                        index: index,
-                        dense: true,
-                        showSource: false,
-                        selected: selected,
-                        onTap: _selecting ? () => _toggle(song) : null,
-                        onLongPress: _selecting ? null : () => _enterSelection(song),
-                        trailing: _selecting
-                            ? Icon(
-                                selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                                size: 20,
-                                color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.28),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
-                                  IconButton(
-                                    visualDensity: VisualDensity.compact,
-                                    icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
-                                    onPressed: () => showSongActions(context, song),
-                                  ),
-                                ],
-                              ),
-                      );
-                    },
-                  ),
+                : _groupMode == LocalGroupMode.none
+                    ? _songList(songs, player)
+                    : _groupedList(songs, player),
           ),
           if (_selecting) _batchBar(app, player, picked),
         ],
       ),
     );
+  }
+
+  Widget _modeChips() {
+    return SizedBox(
+      height: 42,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        children: [
+          _ModeChip(
+            icon: Icons.list_rounded,
+            label: '歌曲',
+            selected: _groupMode == LocalGroupMode.none,
+            onTap: () => _setGroupMode(LocalGroupMode.none),
+          ),
+          const SizedBox(width: 8),
+          _ModeChip(
+            icon: Icons.person_rounded,
+            label: '歌手',
+            selected: _groupMode == LocalGroupMode.artist,
+            onTap: () => _setGroupMode(LocalGroupMode.artist),
+          ),
+          const SizedBox(width: 8),
+          _ModeChip(
+            icon: Icons.album_rounded,
+            label: '专辑',
+            selected: _groupMode == LocalGroupMode.album,
+            onTap: () => _setGroupMode(LocalGroupMode.album),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _songList(List<Song> songs, PlayerController player) {
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      padding: const EdgeInsets.only(bottom: 130),
+      itemCount: songs.length,
+      itemBuilder: (context, index) => _songTile(
+        song: songs[index],
+        queue: songs,
+        index: index,
+        player: player,
+      ),
+    );
+  }
+
+  Widget _groupedList(List<Song> songs, PlayerController player) {
+    final groups = groupLocalSongs(songs, _groupMode);
+    final app = context.read<AppState>();
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      padding: const EdgeInsets.only(bottom: 130),
+      itemCount: groups.length,
+      itemBuilder: (context, index) {
+        final group = groups[index];
+        final expanded = _selecting || _expandedGroups.contains(group.key);
+        final first = group.songs.first;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _GroupHeader(
+              title: group.title,
+              subtitle: group.subtitle.isEmpty
+                  ? '${group.songs.length} 首'
+                  : '${group.subtitle} · ${group.songs.length} 首',
+              coverUrl: app.api.coverUrl(first.cover, source: first.source),
+              total: group.songs.length,
+              selectedCount: group.songs.where((song) => _selected.contains(song.key)).length,
+              expanded: expanded,
+              selecting: _selecting,
+              onTap: _selecting ? () => _toggleGroup(group) : () => _toggleExpanded(group),
+              onPlay: _selecting ? null : () => playSongList(context, group.songs, 0),
+            ),
+            if (expanded)
+              for (var i = 0; i < group.songs.length; i++)
+                _songTile(
+                  song: group.songs[i],
+                  queue: group.songs,
+                  index: i,
+                  player: player,
+                  indented: true,
+                ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _songTile({
+    required Song song,
+    required List<Song> queue,
+    required int index,
+    required PlayerController player,
+    bool indented = false,
+  }) {
+    final selected = _selecting ? _selected.contains(song.key) : player.current?.key == song.key;
+    final tile = SongTile(
+      song: song,
+      queue: queue,
+      index: index,
+      dense: true,
+      showSource: false,
+      selected: selected,
+      onTap: _selecting ? () => _toggle(song) : null,
+      onLongPress: _selecting ? null : () => _enterSelection(song),
+      trailing: _selecting
+          ? Icon(
+              selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              size: 20,
+              color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.28),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                  onPressed: () => showSongActions(context, song),
+                ),
+              ],
+            ),
+    );
+    if (!indented) return tile;
+    return Padding(padding: const EdgeInsets.only(left: 10), child: tile);
   }
 
   Widget _listToolbar(AppState app, List<Song> songs) {
@@ -381,6 +501,146 @@ class _LocalTabState extends State<_LocalTab> {
                   onTap: enabled ? () => _deleteSelected(app, player, picked) : null,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppColors.accent.withValues(alpha: 0.22)
+          : Colors.white.withValues(alpha: 0.055),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.45)),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader({
+    required this.title,
+    required this.subtitle,
+    required this.coverUrl,
+    required this.total,
+    required this.selectedCount,
+    required this.expanded,
+    required this.selecting,
+    required this.onTap,
+    required this.onPlay,
+  });
+
+  final String title;
+  final String subtitle;
+  final String coverUrl;
+  final int total;
+  final int selectedCount;
+  final bool expanded;
+  final bool selecting;
+  final VoidCallback onTap;
+  final VoidCallback? onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          child: Row(
+            children: [
+              CoverArt(url: coverUrl, size: 44, radius: 12, seed: title),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: selecting && selectedCount > 0 ? AppColors.accent : null,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.4)),
+                    ),
+                  ],
+                ),
+              ),
+              if (selecting)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    selectedCount == 0
+                        ? Icons.radio_button_unchecked_rounded
+                        : (selectedCount == total
+                            ? Icons.check_circle_rounded
+                            : Icons.remove_circle_outline_rounded),
+                    size: 22,
+                    color: selectedCount == 0 ? Colors.white.withValues(alpha: 0.28) : AppColors.accent,
+                  ),
+                )
+              else ...[
+                IconButton(
+                  tooltip: '播放这组',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onPlay,
+                  icon: const Icon(Icons.play_circle_fill_rounded, size: 26, color: AppColors.accent),
+                ),
+                Icon(
+                  expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                  size: 20,
+                  color: Colors.white.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: 4),
+              ],
             ],
           ),
         ),

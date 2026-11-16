@@ -321,6 +321,18 @@ class _PlayerPageState extends State<PlayerPage> {
         ),
         _action(
           context,
+          icon: Icons.speed_rounded,
+          label: _speedLabel(player.speed),
+          onTap: () => _showSpeedSheet(context, player),
+        ),
+        _action(
+          context,
+          icon: Icons.bedtime_rounded,
+          label: _sleepLabel(player.sleepRemaining),
+          onTap: () => _showSleepSheet(context, player),
+        ),
+        _action(
+          context,
           icon: player.errorText == null ? Icons.more_horiz_rounded : Icons.error_outline_rounded,
           label: player.errorText == null ? '更多' : '播放失败',
           onTap: () {
@@ -335,8 +347,93 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  Widget _action(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
-    return InkWell(
+  String _speedLabel(double speed) {
+    if (speed == 1.0) return '倍速';
+    if (speed == speed.roundToDouble()) return '${speed.toInt()}x';
+    return '${speed}x';
+  }
+
+  String _sleepLabel(Duration? remaining) {
+    if (remaining == null) return '定时';
+    final minutes = (remaining.inSeconds / 60).ceil();
+    return minutes <= 0 ? '定时' : '$minutes分';
+  }
+
+  void _showSpeedSheet(BuildContext context, PlayerController player) {
+    const options = [0.75, 1.0, 1.25, 1.5, 2.0];
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('播放速度', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            for (final value in options)
+              ListTile(
+                dense: true,
+                title: Text(value == 1.0 ? '正常' : '$value x'),
+                trailing: player.speed == value ? const Icon(Icons.check_rounded, size: 20) : null,
+                onTap: () {
+                  player.setSpeed(value);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSleepSheet(BuildContext context, PlayerController player) {
+    const options = <(String, Duration?)>[
+      ('关闭定时', null),
+      ('15 分钟', Duration(minutes: 15)),
+      ('30 分钟', Duration(minutes: 30)),
+      ('60 分钟', Duration(minutes: 60)),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('定时停止播放', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            for (final option in options)
+              ListTile(
+                dense: true,
+                title: Text(option.$1),
+                onTap: () {
+                  player.setSleepTimer(option.$2);
+                  Navigator.pop(sheetContext);
+                  showAppSnack(
+                    context,
+                    option.$2 == null ? '已取消定时停止' : '将在 ${option.$1}后暂停播放',
+                  );
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _action(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {    return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Padding(

@@ -45,6 +45,56 @@ class PlayerController extends ChangeNotifier {
   bool lyricsLoading = false;
   bool shuffle = false;
 
+  /// Playback speed, 1.0 = normal. Applied when a new track starts too.
+  double speed = 1.0;
+
+  /// When set, playback pauses automatically at that moment.
+  DateTime? sleepAt;
+  Timer? _sleepTimer;
+  Timer? _sleepTicker;
+
+  Duration? get sleepRemaining {
+    final at = sleepAt;
+    if (at == null) return null;
+    final left = at.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  Future<void> setSpeed(double value) async {
+    speed = value.clamp(0.5, 3.0);
+    try {
+      await player.setSpeed(speed);
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Starts a sleep timer, or clears it when [duration] is null.
+  void setSleepTimer(Duration? duration) {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepTicker?.cancel();
+    _sleepTicker = null;
+    if (duration == null) {
+      sleepAt = null;
+      notifyListeners();
+      return;
+    }
+    sleepAt = DateTime.now().add(duration);
+    // Keep the countdown label fresh in the player page.
+    _sleepTicker = Timer.periodic(const Duration(seconds: 30), (_) => notifyListeners());
+    _sleepTimer = Timer(duration, () async {
+      _sleepTimer = null;
+      _sleepTicker?.cancel();
+      _sleepTicker = null;
+      sleepAt = null;
+      try {
+        await player.pause();
+      } catch (_) {}
+      notifyListeners();
+    });
+    notifyListeners();
+  }
+
   void toggleShuffle() {
     shuffle = !shuffle;
     if (shuffle && queue.length > 1) {
@@ -102,6 +152,9 @@ class PlayerController extends ChangeNotifier {
           artUri: cover.isEmpty ? null : Uri.parse(cover),
         ),
       ));
+      if (speed != 1.0) {
+        await player.setSpeed(speed);
+      }
       await player.play();
       unawaited(loadLyrics(song));
     } catch (error) {
@@ -219,6 +272,8 @@ class PlayerController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _sleepTimer?.cancel();
+    _sleepTicker?.cancel();
     _stateSub.cancel();
     _errorSub.cancel();
     player.dispose();

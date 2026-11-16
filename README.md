@@ -105,6 +105,8 @@ Android 验收步骤见 `docs/android-verification.md`，完整测试与排障�
 `docs/testing-guide.md`。反馈问题时可用 `scripts/collect_android_diagnostics.sh`
 一键收集版本、日志、媒体会话与导出文件信息。
 
+版本规划与后续候选见 [`docs/roadmap.md`](docs/roadmap.md)。
+
 ## 许可证
 
 本项目以 **GNU AGPL-3.0** 发布，详见 [LICENSE](LICENSE)。内嵌的

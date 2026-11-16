@@ -63,7 +63,8 @@ cd app && flutter build apk --release
 adb install -r app/build/app/outputs/flutter-apk/app-release.apk
 ```
 
-> release 包当前使用 debug 签名，仅用于验收；上架前请配置自己的 keystore。
+> 从 1.0.2 起使用统一的 release keystore 签名，后续版本可覆盖升级。
+> 本地与 CI 配置方法见 [`docs/signing.md`](docs/signing.md)。
 
 ## 构建桌面端
 
@@ -98,6 +99,8 @@ cd app && flutter build ios
 
 数据（设置、收藏、歌单、Cookie、下载）以 JSON 文件保存在应用数据目录，不使用 SQLite。
 
+Android 只构建 `arm64-v8a`（覆盖现代真机，不支持 32 位设备与模拟器）。
+
 Android 验收步骤见 `docs/android-verification.md`，完整测试与排障手册见
 `docs/testing-guide.md`。反馈问题时可用 `scripts/collect_android_diagnostics.sh`
 一键收集版本、日志、媒体会话与导出文件信息。
@@ -111,6 +114,6 @@ Android 验收步骤见 `docs/android-verification.md`，完整测试与排障�
 
 ## 已知限制
 
-- Android release 使用 debug 签名
+- Android 使用稳定 release 签名（1.0.2 起），仅构建 arm64-v8a
 - 媒体源可用性取决于上游 `music-lib` 与各平台 Cookie 状态
 - Windows / macOS 包需要在对应系统或 CI 上构建

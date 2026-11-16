@@ -37,6 +37,10 @@ type streamEntry struct {
 	ContentType string
 	Preview     bool
 	ExpiresAt   time.Time
+	// Temp marks FilePath as a stream-owned scratch file. Only temp files may
+	// be removed when an entry expires; local library files must never be
+	// deleted by stream cleanup.
+	Temp bool
 
 	// FallbackSource is set when the requested platform could not provide audio
 	// and a matching song from another platform was used instead.
@@ -113,7 +117,7 @@ func (m *StreamManager) add(entry *streamEntry) string {
 }
 
 func removeEntryFile(e *streamEntry) {
-	if e != nil && e.FilePath != "" {
+	if e != nil && e.Temp && e.FilePath != "" {
 		_ = os.Remove(e.FilePath)
 	}
 }
@@ -178,6 +182,35 @@ func (m *StreamManager) resolveDirect(ctx context.Context, song model.Song) (*st
 	}
 
 	switch source {
+	case "local":
+		// Local library entries carry their absolute path in Link/Extra and are
+		// served straight from disk. They are never fetched from an upstream
+		// platform and never trigger cross-source fallback.
+		path := strings.TrimSpace(song.Link)
+		if path == "" && song.Extra != nil {
+			path = strings.TrimSpace(song.Extra["path"])
+		}
+		if path == "" {
+			return nil, "", errors.New("本地文件路径缺失，请重新扫描音乐库")
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return nil, "", err
+		}
+		root, err := filepath.Abs(m.store.Settings().DownloadDir)
+		if err != nil {
+			return nil, "", err
+		}
+		rel, err := filepath.Rel(root, abs)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return nil, "", errors.New("本地文件不在音乐目录中")
+		}
+		info, err := os.Stat(abs)
+		if err != nil || info.IsDir() {
+			return nil, "", errors.New("本地文件不存在，请重新扫描音乐库")
+		}
+		entry.FilePath = abs
+		entry.Ext = firstNonEmpty(strings.TrimPrefix(strings.ToLower(filepath.Ext(abs)), "."), entry.Ext)
 	case "soda":
 		info, err := soda.New(cookie).GetDownloadInfo(&song)
 		if err != nil {
@@ -201,6 +234,7 @@ func (m *StreamManager) resolveDirect(ctx context.Context, song model.Song) (*st
 				return nil, "", err
 			}
 			entry.FilePath, entry.Ext, entry.Preview = path, ext, info.Preview
+			entry.Temp = true
 		} else {
 			entry.URL = info.URL
 			entry.Ext = firstNonEmpty(info.Format, entry.Ext)
@@ -229,6 +263,7 @@ func (m *StreamManager) resolveDirect(ctx context.Context, song model.Song) (*st
 				return nil, "", err
 			}
 			entry.FilePath, entry.Ext = path, ext
+			entry.Temp = true
 		} else {
 			entry.URL = info.URL
 			entry.Ext = firstNonEmpty(info.Ext, info.Format, entry.Ext)

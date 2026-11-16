@@ -1,14 +1,18 @@
 package app.soundisle.music
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -43,6 +47,11 @@ class MainActivity : AudioServiceActivity() {
                         requestStartupPermissions()
                         result.success(true)
                     }
+                    "notificationStatus" -> result.success(notificationStatus())
+                    "openNotificationSettings" -> {
+                        openNotificationSettings()
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -70,6 +79,25 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    /** Reports why the media notification may be missing (permission/channel). */
+    private fun notificationStatus(): Map<String, Any> {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+        val channel = manager.getNotificationChannel("app.soundisle.channel.audio")
+        return mapOf(
+            "granted" to (granted && manager.areNotificationsEnabled()),
+            "permissionGranted" to granted,
+            "appEnabled" to manager.areNotificationsEnabled(),
+            "channelExists" to (channel != null),
+            "channelImportance" to (channel?.importance ?: -1),
+        )
+    }
+
     /**
      * Android 13+ needs an explicit notification permission before the media
      * session can show playback controls. Android 9 and older need write access
@@ -89,6 +117,17 @@ class MainActivity : AudioServiceActivity() {
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 4201)
         }
+    }
+
+    private fun openNotificationSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:$packageName"))
+        }
+        startActivity(intent)
     }
 
     /**

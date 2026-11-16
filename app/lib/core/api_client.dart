@@ -133,6 +133,11 @@ class ApiClient {
     return (sources: sources, defaults: defaults);
   }
 
+  Future<Map<String, dynamic>> health() async {
+    final json = await _request('GET', '/api/health') as Map<String, dynamic>;
+    return json;
+  }
+
   Future<AppSettings> fetchSettings() async {
     final json = await _request('GET', '/api/settings') as Map<String, dynamic>;
     return AppSettings.fromJson(json);

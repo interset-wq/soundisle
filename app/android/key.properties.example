@@ -1,0 +1,10 @@
+# Copy to app/android/key.properties and point storeFile at the release keystore.
+# key.properties is git-ignored; never commit the keystore or its passwords.
+#
+# CI writes this file from repository secrets:
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+storePassword=change-me
+keyPassword=change-me
+keyAlias=soundisle
+storeFile=/absolute/path/to/soundisle-release.jks

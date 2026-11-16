@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/backend.dart';
 import '../../core/models.dart';
+import '../../core/permissions.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'login_page.dart';
@@ -19,11 +21,37 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   Map<String, String> _cookies = {};
   bool _loadingCookies = true;
+  String _appVersion = '';
+  String _coreVersion = '';
+  NotificationStatus? _notificationStatus;
 
   @override
   void initState() {
     super.initState();
     _loadCookies();
+    _loadMeta();
+  }
+
+  Future<void> _loadMeta() async {
+    final api = context.read<ApiClient>();
+    String appVersion = '';
+    String coreVersion = '';
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final build = info.buildNumber.isEmpty ? '' : '+${info.buildNumber}';
+      appVersion = '${info.version}$build';
+    } catch (_) {}
+    try {
+      final health = await api.health();
+      coreVersion = '${health['version'] ?? ''}';
+    } catch (_) {}
+    final status = await AppPermissions.notificationStatus();
+    if (!mounted) return;
+    setState(() {
+      _appVersion = appVersion;
+      _coreVersion = coreVersion;
+      _notificationStatus = status;
+    });
   }
 
   Future<void> _loadCookies() async {
@@ -175,11 +203,25 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                const ListTile(
-                  leading: Icon(Icons.music_note_rounded),
-                  title: Text('声屿'),
-                  subtitle: Text('版本 1.0.0 · 核心 0.1.0'),
+                ListTile(
+                  leading: const Icon(Icons.music_note_rounded),
+                  title: const Text('声屿'),
+                  subtitle: Text(
+                    '版本 ${_appVersion.isEmpty ? '—' : _appVersion} · 核心 ${_coreVersion.isEmpty ? '—' : _coreVersion}',
+                  ),
                 ),
+                if (_notificationStatus != null)
+                  ListTile(
+                    leading: Icon(
+                      _notificationStatus!.enabled
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_off_rounded,
+                    ),
+                    title: const Text('播放通知'),
+                    subtitle: Text(_notificationStatus!.label),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: AppPermissions.openNotificationSettings,
+                  ),
                 ListTile(
                   leading: const Icon(Icons.dns_rounded),
                   title: const Text('本地音乐核心'),

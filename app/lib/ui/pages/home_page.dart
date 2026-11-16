@@ -21,16 +21,50 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static const _recommendSources = ['netease', 'qq', 'kugou'];
+
   List<Playlist> _recommend = const [];
   List<Song> _hot = const [];
   List<TopList> _topLists = const [];
   bool _loading = true;
+  bool _recommendLoading = false;
+  int _recommendCursor = 0;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// Refreshes only the recommendation strip. "换一批" must not clear the rest
+  /// of the home page or replace it with a full-page spinner.
+  Future<void> _refreshRecommend() async {
+    if (_recommendLoading) return;
+    setState(() => _recommendLoading = true);
+    final api = context.read<ApiClient>();
+    List<Playlist> next = const [];
+    var cursor = _recommendCursor;
+    for (var attempt = 0; attempt < _recommendSources.length; attempt++) {
+      final index = (cursor + attempt) % _recommendSources.length;
+      try {
+        final items = await api.recommend(_recommendSources[index]);
+        if (items.isNotEmpty) {
+          next = items;
+          cursor = (index + 1) % _recommendSources.length;
+          break;
+        }
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() {
+      if (next.isNotEmpty) _recommend = next;
+      _recommendCursor = cursor;
+      _recommendLoading = false;
+    });
+    if (next.isEmpty) {
+      showAppSnack(context, '暂时没有更多推荐，请稍后再试');
+    }
   }
 
   Future<void> _load() async {
@@ -45,9 +79,11 @@ class _HomePageState extends State<HomePage> {
 
     try {
       recommend = await api.recommend('netease');
+      _recommendCursor = 1 % _recommendSources.length;
     } catch (_) {
       try {
         recommend = await api.recommend('qq');
+        _recommendCursor = 2 % _recommendSources.length;
       } catch (_) {}
     }
     try {
@@ -85,7 +121,12 @@ class _HomePageState extends State<HomePage> {
     final local = app.localSongs.take(6).toList();
     final rows = <Widget>[
       if (_recommend.isNotEmpty) ...[
-        SectionHeader(title: '为你推荐', subtitle: '根据热门趋势挑选', action: '换一批', onAction: _load),
+        SectionHeader(
+          title: '为你推荐',
+          subtitle: '根据热门趋势挑选',
+          action: _recommendLoading ? '加载中…' : '换一批',
+          onAction: _refreshRecommend,
+        ),
         SizedBox(
           height: 222,
           child: ListView.separated(

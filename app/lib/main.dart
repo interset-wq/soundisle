@@ -21,8 +21,14 @@ Future<void> main() async {
     await JustAudioBackground.init(
       androidNotificationChannelId: 'app.soundisle.channel.audio',
       androidNotificationChannelName: '音乐播放',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
+      androidNotificationChannelDescription: '播放控制与当前歌曲信息',
+      // Adaptive launcher icons are invalid as notification small icons on
+      // some Android builds; use the dedicated monochrome drawable instead.
+      androidNotificationIcon: 'drawable/ic_stat_soundisle',
+      // Keep the media notification (and its controls) visible while paused so
+      // playback can be resumed from the shade or lock screen.
+      androidNotificationOngoing: false,
+      androidStopForegroundOnPause: false,
     );
   }
   if (Platform.isLinux || Platform.isWindows) {

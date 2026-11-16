@@ -36,10 +36,10 @@ case "$TARGET" in
     : "${ANDROID_NDK_HOME:?ANDROID_NDK_HOME is not set}"
     OUT="$ROOT/app/android/app/libs/musiccore.aar"
     mkdir -p "$(dirname "$OUT")"
-    # arm64 covers modern phones, arm covers older 32-bit devices. Add
-    # android/amd64 + android/386 when you need emulator support.
+    # arm64-v8a covers essentially every Android phone still in use. Add
+    # android/arm or android/amd64 only for legacy 32-bit devices or emulators.
     gomobile bind \
-      -target=android/arm64,android/arm \
+      -target=android/arm64 \
       -androidapi 24 \
       -javapkg=app.soundisle.core \
       -ldflags "-s -w" \

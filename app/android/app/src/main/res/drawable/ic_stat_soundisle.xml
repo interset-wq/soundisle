@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome status-bar icon for the media notification. Adaptive launcher
+     icons must not be used as notification small icons on some Android builds,
+     so keep this as a plain vector drawable. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,3a2,2 0,1 0,0 4a2,2 0,0 0,0 -4z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,9.5c0,-0.55 0.45,-1 1,-1c1.3,0 2.2,0.5 3.1,1.1c0.9,0.6 1.8,1.15 2.9,1.15s2,-0.55 2.9,-1.15c0.9,-0.6 1.8,-1.1 3.1,-1.1c0.55,0 1,0.45 1,1s-0.45,1 -1,1c-0.6,0 -1.05,0.22 -1.75,0.7c-0.75,0.5 -1.85,1.35 -3.25,1.55v2.2h4.5c0.55,0 1,0.45 1,1s-0.45,1 -1,1h-4.5v3.1c0,0.55 -0.45,1 -1,1s-1,-0.45 -1,-1v-3.1h-4.5c-0.55,0 -1,-0.45 -1,-1s0.45,-1 1,-1h4.5v-2.2c-1.4,-0.2 -2.5,-1.05 -3.25,-1.55c-0.7,-0.48 -1.15,-0.7 -1.75,-0.7c-0.55,0 -1,-0.45 -1,-1z" />
+</vector>

@@ -24,6 +24,7 @@
 | BUG-104 | 「换一批」只刷新推荐区                                     | `app/lib/ui/pages/home_page.dart`                        |
 | 新增-04 | 点歌直接滑入播放页，可在设置关闭                           | `player_route.dart`、`song_tile.dart`、`app_state.dart`  |
 | 新增-05 | 下载历史持久化、中断任务可重试、`.part` 暂存避免半截文件   | `backend/internal/api/downloads.go`                      |
+| 新增-07 | 下载断点续传（HTTP Range），`.part` 暂存与自动清理         | `backend/internal/api/downloads.go`、`downloads_resume_test.go` |
 | 新增-06 | 播放页倍速（0.75~2.0x）与定时停止（15/30/60 分钟）         | `player_controller.dart`、`player_page.dart`             |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
@@ -40,7 +41,6 @@
 | 优先级 | 候选                                                     | 说明                                                         |
 | ------ | -------------------------------------------------------- | ------------------------------------------------------------ |
 | P1     | 播放队列页                                               | 可查看/拖动/删除「接下来播放」，目前只能上一首/下一首        |
-| P1     | 下载断点续传                                             | 现在重试从头下载；需要 Range 请求与 `.part` 校验             |
 | P2     | 本地音乐批量管理                                         | 多选删除、按目录/歌手分组、手动「重新扫描」入口更显眼        |
 | P2     | 桌面端打包补齐（Linux 优先）                             | 需要 `libgtk-3-dev` 等依赖；CI 增加桌面构建 job              |
 | P3     | 浅色主题                                                 | 目前固定深色；需要统一 `AppColors` 并逐页检查对比度          |

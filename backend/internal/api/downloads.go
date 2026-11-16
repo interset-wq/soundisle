@@ -32,6 +32,9 @@ type DownloadTask struct {
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	Finished  *time.Time `json:"finishedAt,omitempty"`
+	// Partial points at the in-progress ".part" file so a retry can resume
+	// instead of downloading the whole track again.
+	Partial string `json:"partial,omitempty"`
 	// Song is kept so history survives restarts and a failed task can be
 	// retried without re-searching for the track.
 	Song     model.Song `json:"song"`
@@ -104,6 +107,15 @@ func (m *DownloadManager) load() {
 			task.Finished = &finished
 		case "canceled":
 			continue
+		}
+		if task.Partial != "" {
+			if stat, statErr := os.Stat(task.Partial); statErr == nil && stat.Mode().IsRegular() {
+				if task.Received < stat.Size() {
+					task.Received = stat.Size()
+				}
+			} else {
+				task.Partial = ""
+			}
 		}
 		task.canceled = false
 		loaded = append(loaded, &task)
@@ -228,6 +240,9 @@ func (m *DownloadManager) Remove(id string) {
 	defer m.mu.Unlock()
 	if task, ok := m.tasks[id]; ok {
 		task.canceled = true
+		if task.Partial != "" {
+			_ = os.Remove(task.Partial)
+		}
 		delete(m.tasks, id)
 	}
 	for i, existing := range m.order {
@@ -311,92 +326,62 @@ func (m *DownloadManager) process(id string) {
 	}
 	target := uniquePath(filepath.Join(outDir, filename))
 	// Download into a .part file first: a killed process then leaves no
-	// truncated file that the local library would happily list as a song.
+	// truncated file that the local library would happily list as a song, and
+	// a retry can append to it with an HTTP Range request.
 	staging := target + ".part"
-	defer os.Remove(staging)
+	m.Update(id, func(t *DownloadTask) { t.Partial = staging })
+
+	isCanceled := func() bool {
+		current, ok := m.get(id)
+		return !ok || current.canceled
+	}
 
 	var written int64
 	if entry.FilePath != "" {
-		if err := copyFile(entry.FilePath, staging, func(n int64) {
+		// Copying a local library file cannot be resumed; start clean.
+		_ = os.Remove(staging)
+		err = copyFile(entry.FilePath, staging, func(n int64) {
 			m.Update(id, func(t *DownloadTask) { t.Received = n })
-		}, func() bool {
-			current, ok := m.get(id)
-			return !ok || current.canceled
-		}); err != nil {
-			m.fail(id, err)
-			return
-		}
-		stat, _ := os.Stat(staging)
-		if stat != nil {
-			written = stat.Size()
+		}, isCanceled)
+		if err == nil {
+			if stat, statErr := os.Stat(staging); statErr == nil {
+				written = stat.Size()
+			}
 		}
 	} else {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, entry.URL, nil)
-		if err != nil {
-			m.fail(id, err)
+		written, err = fetchToFile(ctx, entry.URL, entry.Headers, staging,
+			func(received, total int64) {
+				m.Update(id, func(t *DownloadTask) {
+					t.Received = received
+					if total > 0 {
+						t.Total = total
+					}
+				})
+			}, isCanceled)
+	}
+
+	if err != nil {
+		if errors.Is(err, errDownloadCanceled) {
+			_ = os.Remove(staging)
+			m.Update(id, func(t *DownloadTask) { t.Partial = "" })
 			return
 		}
-		for k, values := range entry.Headers {
-			for _, v := range values {
-				req.Header.Add(k, v)
-			}
+		// Protocol errors will not get better on retry, so drop the partial
+		// file. Network/IO failures keep it for the resume path.
+		var statusErr httpStatusError
+		if errors.As(err, &statusErr) || entry.FilePath != "" {
+			_ = os.Remove(staging)
+			m.Update(id, func(t *DownloadTask) { t.Partial = "" })
 		}
-		client := &http.Client{Timeout: 0}
-		resp, err := client.Do(req)
-		if err != nil {
-			m.fail(id, err)
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			m.fail(id, fmt.Errorf("音频服务器返回 HTTP %d", resp.StatusCode))
-			return
-		}
-		total := resp.ContentLength
-		m.Update(id, func(t *DownloadTask) { t.Total = total })
-		f, err := os.Create(staging)
-		if err != nil {
-			m.fail(id, err)
-			return
-		}
-		buf := make([]byte, 64<<10)
-		for {
-			current, ok := m.get(id)
-			if !ok || current.canceled {
-				f.Close()
-				os.Remove(staging)
-				return
-			}
-			n, readErr := resp.Body.Read(buf)
-			if n > 0 {
-				if _, writeErr := f.Write(buf[:n]); writeErr != nil {
-					f.Close()
-					m.fail(id, writeErr)
-					return
-				}
-				written += int64(n)
-				m.Update(id, func(t *DownloadTask) { t.Received = written })
-			}
-			if readErr == io.EOF {
-				break
-			}
-			if readErr != nil {
-				f.Close()
-				os.Remove(staging)
-				m.fail(id, readErr)
-				return
-			}
-		}
-		if err := f.Close(); err != nil {
-			m.fail(id, err)
-			return
-		}
+		m.fail(id, err)
+		return
 	}
 
 	if err := os.Rename(staging, target); err != nil {
 		m.fail(id, err)
 		return
 	}
+	m.Update(id, func(t *DownloadTask) { t.Partial = "" })
 
 	if m.withLyric {
 		if p, err := m.streams.provider(task.Song.Source); err == nil && p.lyric != nil {
@@ -423,6 +408,105 @@ func (m *DownloadManager) fail(id string, err error) {
 		t.Error = err.Error()
 		t.Finished = &now
 	})
+}
+
+// errDownloadCanceled signals that the user removed the task while bytes were
+// still arriving; the caller deletes the part file.
+var errDownloadCanceled = errors.New("下载已取消")
+
+// httpStatusError marks a definitive server-side rejection, which is not worth
+// resuming.
+type httpStatusError struct{ code int }
+
+func (e httpStatusError) Error() string { return fmt.Sprintf("音频服务器返回 HTTP %d", e.code) }
+
+// fetchToFile streams rawURL into path and resumes from the current file size
+// when the server answers a Range request with 206. Servers that ignore Range
+// simply restart the file from zero.
+func fetchToFile(ctx context.Context, rawURL string, headers http.Header, path string,
+	onProgress func(received, total int64), canceled func() bool) (int64, error) {
+	var offset int64
+	if stat, err := os.Stat(path); err == nil && stat.Mode().IsRegular() {
+		offset = stat.Size()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return offset, err
+	}
+	for key, values := range headers {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+	if offset > 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
+	}
+
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return offset, err
+	}
+	defer resp.Body.Close()
+
+	total := resp.ContentLength
+	switch resp.StatusCode {
+	case http.StatusPartialContent:
+		if resp.ContentLength >= 0 {
+			total = offset + resp.ContentLength
+		}
+	case http.StatusOK:
+		// Range ignored: rewrite from the beginning.
+		offset = 0
+	default:
+		return offset, httpStatusError{code: resp.StatusCode}
+	}
+
+	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	if offset > 0 {
+		flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	}
+	file, err := os.OpenFile(path, flags, 0o644)
+	if err != nil {
+		return offset, err
+	}
+
+	written := offset
+	if onProgress != nil {
+		onProgress(written, total)
+	}
+	buf := make([]byte, 64<<10)
+	for {
+		if canceled != nil && canceled() {
+			file.Close()
+			return written, errDownloadCanceled
+		}
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := file.Write(buf[:n]); writeErr != nil {
+				file.Close()
+				return written, writeErr
+			}
+			written += int64(n)
+			if onProgress != nil {
+				onProgress(written, total)
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			file.Close()
+			return written, readErr
+		}
+	}
+	if err := file.Close(); err != nil {
+		return written, err
+	}
+	if total > 0 && written < total {
+		return written, fmt.Errorf("下载不完整：%d/%d 字节", written, total)
+	}
+	return written, nil
 }
 
 func buildFilename(template string, song model.Song, ext string) string {

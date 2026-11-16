@@ -116,3 +116,26 @@ func TestRetryRequeuesFailedTask(t *testing.T) {
 		t.Fatal("expected retry of an unknown task to fail")
 	}
 }
+
+func TestRemoveDeletesPartialFile(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	m := newTestDownloadManager(t, dir, store)
+	partial := filepath.Join(dir, "track.mp3.part")
+	if err := os.WriteFile(partial, []byte("partial"), 0o644); err != nil {
+		t.Fatalf("write part file: %v", err)
+	}
+	m.tasks["dl-1"] = &DownloadTask{
+		ID: "dl-1", Name: "Broken", Source: "netease", Status: "failed",
+		Partial: partial, CreatedAt: time.Now(),
+	}
+	m.order = []string{"dl-1"}
+
+	m.Remove("dl-1")
+	if _, err := os.Stat(partial); !os.IsNotExist(err) {
+		t.Fatalf("partial file still exists after remove: %v", err)
+	}
+}

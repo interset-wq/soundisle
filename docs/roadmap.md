@@ -1,6 +1,6 @@
 # 第三版规划（1.0.2）
 
-> 状态：**开发完成，等待签名 secrets 后发布**。
+> 状态：**已发布预发布 `v1.0.2-android.18`**（稳定 release 签名）。
 > 上一版为 `v1.0.1-android.*`（1.0.1，debug 签名）。
 
 ## 1. 版本目标
@@ -37,11 +37,12 @@
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。
 
-## 3. 待你确认后发布
+## 3. 发布记录
 
-1. 在 GitHub 仓库添加 4 个签名 secret（值在 `~/.soundisle-signing/github-secrets.txt`）；
-2. 推 tag `v1.0.2`，CI 产出 `v1.0.2-android.<run>` + `apk-certs.txt`；
-3. 从 1.0.1 升级需先卸载一次（签名更换）。
+1. 4 个签名 secret 已通过 `gh secret set` 写入仓库；
+2. 推 tag `v1.0.2` 后 CI 产出预发布 `v1.0.2-android.18`，含 `soundisle-android.apk` 与 `apk-certs.txt`；
+3. APK 校验：`1.0.2 (3)`、仅 `arm64-v8a`、签名 SHA-256 `B9:33:E6:…:7E:C2:23`；
+4. 从 1.0.1 升级需先卸载一次（签名更换），之后可直接覆盖。
 
 ## 4. 下一批候选（按收益排序）
 

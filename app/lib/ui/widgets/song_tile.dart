@@ -24,6 +24,7 @@ class SongTile extends StatelessWidget {
     this.dense = false,
     this.trailing,
     this.selected = false,
+    this.onLongPress,
   });
 
   final Song song;
@@ -35,6 +36,7 @@ class SongTile extends StatelessWidget {
   final bool dense;
   final Widget? trailing;
   final bool selected;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +49,7 @@ class SongTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap ?? () => playSongList(context, queue ?? [song], index ?? 0),
+        onLongPress: onLongPress,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: dense ? 7 : 9),
           child: Row(
@@ -293,8 +296,13 @@ Future<void> showSongActions(BuildContext context, Song song) async {
   );
 }
 
-Future<void> showAddToCollection(BuildContext context, Song song) async {
+Future<void> showAddToCollection(BuildContext context, Song song) =>
+    showAddToCollectionSongs(context, [song]);
+
+Future<void> showAddToCollectionSongs(BuildContext context, List<Song> songs) async {
+  if (songs.isEmpty) return;
   final app = context.read<AppState>();
+  final single = songs.length == 1;
   await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -310,9 +318,15 @@ Future<void> showAddToCollection(BuildContext context, Song song) async {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  child: Align(alignment: Alignment.centerLeft, child: Text('添加到歌单', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      single ? '添加到歌单' : '添加 ${songs.length} 首到歌单',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                    ),
+                  ),
                 ),
                 for (final collection in collections)
                   ListTile(
@@ -320,11 +334,18 @@ Future<void> showAddToCollection(BuildContext context, Song song) async {
                         color: collection.isFavorites ? AppColors.accentAlt : null),
                     title: Text(collection.name),
                     subtitle: Text('${collection.songs.length} 首'),
-                    trailing: collection.songs.contains(song) ? const Icon(Icons.check_rounded, size: 18) : null,
+                    trailing: songs.every(collection.songs.contains)
+                        ? const Icon(Icons.check_rounded, size: 18)
+                        : null,
                     onTap: () async {
-                      await app.addToCollection(collection.id, [song]);
+                      await app.addToCollection(collection.id, songs);
                       if (sheetContext.mounted) Navigator.pop(sheetContext);
-                      if (context.mounted) showAppSnack(context, '已添加到「${collection.name}」');
+                      if (context.mounted) {
+                        showAppSnack(
+                          context,
+                          single ? '已添加到「${collection.name}」' : '已添加 ${songs.length} 首到「${collection.name}」',
+                        );
+                      }
                     },
                   ),
                 ListTile(
@@ -334,7 +355,7 @@ Future<void> showAddToCollection(BuildContext context, Song song) async {
                     final name = await _askName(context, '新建歌单');
                     if (name == null || name.trim().isEmpty) return;
                     final collection = await app.createCollection(name.trim());
-                    await app.addToCollection(collection.id, [song]);
+                    await app.addToCollection(collection.id, songs);
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
                   },
                 ),

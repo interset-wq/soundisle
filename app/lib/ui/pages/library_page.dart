@@ -75,22 +75,89 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
   }
 }
 
-class _LocalTab extends StatelessWidget {
+class _LocalTab extends StatefulWidget {
   const _LocalTab({required this.onOpenSearch});
 
   final VoidCallback onOpenSearch;
 
-  Future<void> _importFromMusic(BuildContext context, AppState app) async {
+  @override
+  State<_LocalTab> createState() => _LocalTabState();
+}
+
+class _LocalTabState extends State<_LocalTab> {
+  bool _selecting = false;
+  final Set<String> _selected = {};
+
+  List<Song> _selectedSongs(List<Song> songs) =>
+      songs.where((song) => _selected.contains(song.key)).toList();
+
+  void _enterSelection([Song? song]) {
+    setState(() {
+      _selecting = true;
+      if (song != null) _selected.add(song.key);
+    });
+  }
+
+  void _exitSelection() {
+    if (!mounted) return;
+    setState(() {
+      _selecting = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggle(Song song) {
+    setState(() {
+      if (!_selected.remove(song.key)) _selected.add(song.key);
+    });
+  }
+
+  Future<void> _importFromMusic(AppState app) async {
     try {
       final summary = await app.importExportedMusic();
-      if (!context.mounted) return;
+      if (!mounted) return;
       if (summary == null) {
         showAppSnack(context, '当前平台不支持从系统音乐目录导入');
       } else {
         showAppSnack(context, summary.message);
       }
     } catch (error) {
-      if (context.mounted) showAppSnack(context, '$error');
+      if (mounted) showAppSnack(context, '$error');
+    }
+  }
+
+  Future<void> _deleteSelected(
+    AppState app,
+    PlayerController player,
+    List<Song> picked,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('删除 ${picked.length} 首本地文件'),
+        content: const Text('确定从设备中删除选中的歌曲吗？此操作无法撤销。\n\n只会删除 App 内的副本，系统 Music/声屿 中的文件会保留。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      if (picked.any((song) => song.key == player.current?.key)) {
+        await player.pause();
+      }
+      final deleted = await app.deleteLocalSongs(picked);
+      if (!mounted) return;
+      _exitSelection();
+      showAppSnack(
+        context,
+        deleted == picked.length
+            ? '已删除 $deleted 首本地歌曲'
+            : '已删除 $deleted 首，${picked.length - deleted} 首失败',
+      );
+    } catch (error) {
+      if (mounted) showAppSnack(context, '$error');
     }
   }
 
@@ -99,50 +166,16 @@ class _LocalTab extends StatelessWidget {
     final app = context.watch<AppState>();
     final player = context.watch<PlayerController>();
     final songs = app.localSongs;
+    final picked = _selectedSongs(songs);
+    final allSelected = songs.isNotEmpty && picked.length == songs.length;
     return RefreshIndicator(
       onRefresh: app.refreshLibrary,
       child: Column(
         children: [
-          _ListToolbar(
-            icon: Icons.folder_rounded,
-            title: '已下载到本地',
-            subtitle: StorageBridge.supported
-                ? '${songs.length} 首歌曲 · 副本在系统 Music/声屿'
-                : (app.settings.downloadDir.isEmpty ? '${songs.length} 首歌曲' : app.settings.downloadDir),
-            actions: [
-              if (StorageBridge.supported)
-                IconButton(
-                  tooltip: '从 Music/声屿 导入',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: app.importingExported ? null : () => _importFromMusic(context, app),
-                  icon: app.importingExported
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.library_music_rounded, size: 20),
-                ),
-              TextButton.icon(
-                onPressed: app.scanning
-                    ? null
-                    : () async {
-                        try {
-                          await app.rescanLibrary();
-                          if (context.mounted) showAppSnack(context, '扫描完成，共 ${app.localSongs.length} 首');
-                        } catch (error) {
-                          if (context.mounted) showAppSnack(context, '$error');
-                        }
-                      },
-                icon: app.scanning
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.refresh_rounded, size: 16),
-                label: Text(app.scanning ? '扫描中' : '重新扫描', style: const TextStyle(fontSize: 11.5)),
-              ),
-              if (songs.isNotEmpty)
-                IconButton(
-                  tooltip: '播放全部',
-                  onPressed: () => playSongList(context, songs, 0),
-                  icon: const Icon(Icons.play_circle_fill_rounded, size: 28, color: AppColors.accent),
-                ),
-            ],
-          ),
+          if (_selecting)
+            _selectionToolbar(songs, picked, allSelected)
+          else
+            _listToolbar(app, songs),
           Expanded(
             child: songs.isEmpty
                 ? EmptyState(
@@ -156,10 +189,10 @@ class _LocalTab extends StatelessWidget {
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
                       children: [
-                        FilledButton(onPressed: onOpenSearch, child: const Text('去搜索音乐')),
+                        FilledButton(onPressed: widget.onOpenSearch, child: const Text('去搜索音乐')),
                         if (StorageBridge.supported)
                           OutlinedButton(
-                            onPressed: app.importingExported ? null : () => _importFromMusic(context, app),
+                            onPressed: app.importingExported ? null : () => _importFromMusic(app),
                             child: Text(app.importingExported ? '导入中…' : '从 Music/声屿 导入'),
                           ),
                       ],
@@ -171,29 +204,228 @@ class _LocalTab extends StatelessWidget {
                     itemCount: songs.length,
                     itemBuilder: (context, index) {
                       final song = songs[index];
+                      final selected = _selecting
+                          ? _selected.contains(song.key)
+                          : player.current?.key == song.key;
                       return SongTile(
                         song: song,
                         queue: songs,
                         index: index,
                         dense: true,
                         showSource: false,
-                        selected: player.current?.key == song.key,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
-                              onPressed: () => showSongActions(context, song),
-                            ),
-                          ],
-                        ),
+                        selected: selected,
+                        onTap: _selecting ? () => _toggle(song) : null,
+                        onLongPress: _selecting ? null : () => _enterSelection(song),
+                        trailing: _selecting
+                            ? Icon(
+                                selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                size: 20,
+                                color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.28),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                                  IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                                    onPressed: () => showSongActions(context, song),
+                                  ),
+                                ],
+                              ),
                       );
                     },
                   ),
           ),
+          if (_selecting) _batchBar(app, player, picked),
         ],
+      ),
+    );
+  }
+
+  Widget _listToolbar(AppState app, List<Song> songs) {
+    return _ListToolbar(
+      icon: Icons.folder_rounded,
+      title: '已下载到本地',
+      subtitle: StorageBridge.supported
+          ? '${songs.length} 首歌曲 · 副本在系统 Music/声屿'
+          : (app.settings.downloadDir.isEmpty ? '${songs.length} 首歌曲' : app.settings.downloadDir),
+      actions: [
+        if (StorageBridge.supported)
+          IconButton(
+            tooltip: '从 Music/声屿 导入',
+            visualDensity: VisualDensity.compact,
+            onPressed: app.importingExported ? null : () => _importFromMusic(app),
+            icon: app.importingExported
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.library_music_rounded, size: 20),
+          ),
+        IconButton(
+          tooltip: '重新扫描',
+          visualDensity: VisualDensity.compact,
+          onPressed: app.scanning
+              ? null
+              : () async {
+                  try {
+                    await app.rescanLibrary();
+                    if (mounted) showAppSnack(context, '扫描完成，共 ${app.localSongs.length} 首');
+                  } catch (error) {
+                    if (mounted) showAppSnack(context, '$error');
+                  }
+                },
+          icon: app.scanning
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.refresh_rounded, size: 20),
+        ),
+        if (songs.isNotEmpty)
+          IconButton(
+            tooltip: '批量管理',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _enterSelection(),
+            icon: const Icon(Icons.checklist_rounded, size: 20),
+          ),
+        if (songs.isNotEmpty)
+          IconButton(
+            tooltip: '播放全部',
+            onPressed: () => playSongList(context, songs, 0),
+            icon: const Icon(Icons.play_circle_fill_rounded, size: 28, color: AppColors.accent),
+          ),
+      ],
+    );
+  }
+
+  Widget _selectionToolbar(List<Song> songs, List<Song> picked, bool allSelected) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: '退出多选',
+            onPressed: _exitSelection,
+            icon: const Icon(Icons.close_rounded),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              picked.isEmpty ? '请选择歌曲' : '已选 ${picked.length} 首',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(
+            onPressed: songs.isEmpty
+                ? null
+                : () => setState(() {
+                      if (allSelected) {
+                        _selected.clear();
+                      } else {
+                        _selected.addAll(songs.map((song) => song.key));
+                      }
+                    }),
+            child: Text(allSelected ? '取消全选' : '全选'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _batchBar(AppState app, PlayerController player, List<Song> picked) {
+    final enabled = picked.isNotEmpty;
+    return Material(
+      color: AppColors.darkSurface,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: _BatchAction(
+                  icon: Icons.play_arrow_rounded,
+                  label: '播放',
+                  onTap: enabled
+                      ? () {
+                          final songs = List<Song>.of(picked);
+                          _exitSelection();
+                          playSongList(context, songs, 0);
+                        }
+                      : null,
+                ),
+              ),
+              Expanded(
+                child: _BatchAction(
+                  icon: Icons.queue_play_next_rounded,
+                  label: '加入队列',
+                  onTap: enabled
+                      ? () {
+                          for (final song in picked) {
+                            player.addToQueue(song);
+                          }
+                          _exitSelection();
+                          showAppSnack(context, '已加入 ${picked.length} 首到播放队列');
+                        }
+                      : null,
+                ),
+              ),
+              Expanded(
+                child: _BatchAction(
+                  icon: Icons.playlist_add_rounded,
+                  label: '加入歌单',
+                  onTap: enabled ? () => showAddToCollectionSongs(context, picked) : null,
+                ),
+              ),
+              Expanded(
+                child: _BatchAction(
+                  icon: Icons.delete_outline_rounded,
+                  label: '删除',
+                  color: Colors.redAccent,
+                  onTap: enabled ? () => _deleteSelected(app, player, picked) : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BatchAction extends StatelessWidget {
+  const _BatchAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final tint = enabled ? (color ?? Colors.white) : Colors.white.withValues(alpha: 0.24);
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 21, color: tint),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: enabled ? (color ?? Colors.white.withValues(alpha: 0.75)) : tint,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

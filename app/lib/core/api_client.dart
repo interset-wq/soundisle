@@ -313,6 +313,18 @@ class ApiClient {
     await _request('DELETE', '/api/library', query: {'path': path});
   }
 
+  /// Deletes several local files at once and returns how many were removed.
+  Future<int> deleteLocalSongs(List<Song> songs) async {
+    final paths = [
+      for (final song in songs)
+        if ((song.extra['path'] ?? '').isNotEmpty) song.extra['path']!,
+    ];
+    if (paths.isEmpty) return 0;
+    final json = await _request('POST', '/api/library/delete', body: {'paths': paths})
+        as Map<String, dynamic>;
+    return (json['deleted'] as num?)?.toInt() ?? 0;
+  }
+
   Future<List<DownloadTask>> downloads() async {
     final json = await _request('GET', '/api/downloads') as Map<String, dynamic>;
     return (json['tasks'] as List? ?? const [])

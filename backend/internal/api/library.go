@@ -23,11 +23,11 @@ var audioExtensions = map[string]bool{
 }
 
 type localEntry struct {
-	song    model.Song
-	path    string
-	modTime time.Time
-	size    int64
-	cover   []byte
+	song      model.Song
+	path      string
+	modTime   time.Time
+	size      int64
+	cover     []byte
 	coverMime string
 }
 
@@ -248,6 +248,22 @@ func (l *Library) Delete(path string) error {
 	delete(l.entries, path)
 	l.mu.Unlock()
 	return nil
+}
+
+// DeleteMany removes several files from the download directory. Paths outside
+// that directory are rejected individually so one bad entry cannot block the
+// rest of the batch.
+func (l *Library) DeleteMany(paths []string) (int, []string) {
+	deleted := 0
+	failed := make([]string, 0)
+	for _, path := range paths {
+		if err := l.Delete(path); err != nil {
+			failed = append(failed, filepath.Base(path))
+			continue
+		}
+		deleted++
+	}
+	return deleted, failed
 }
 
 func (l *Library) Export(path string) (*os.File, os.FileInfo, error) {

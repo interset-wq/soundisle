@@ -155,6 +155,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Removes several downloaded files and refreshes the local list.
+  Future<int> deleteLocalSongs(List<Song> songs) async {
+    if (songs.isEmpty) return 0;
+    final deleted = await api.deleteLocalSongs(songs);
+    await refreshLibrary();
+    return deleted;
+  }
+
   /// True while `Music/声屿` is being copied back into the private library.
   bool importingExported = false;
 

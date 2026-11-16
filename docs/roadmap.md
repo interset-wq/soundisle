@@ -14,7 +14,8 @@
 - 点歌直接进播放页（参考手机自带音乐 App）；
 - 下载记录重启后不能凭空消失；
 - 卸载重装后，之前导出到 `Music/声屿` 的歌曲能一键导回；
-- 首页能直接看到最近播放过的歌曲。
+- 首页能直接看到最近播放过的歌曲；
+- 本地音乐能多选后批量加入队列/歌单或删除。
 
 ## 2. 已完成
 
@@ -31,6 +32,7 @@
 | 新增-08 | 从系统 `Music/声屿` 导入已导出歌曲（MediaStore + 权限）     | `MainActivity.kt`、`storage_bridge.dart`、`library_page.dart` |
 | 新增-09 | 播放队列支持长按拖动排序                                   | `player_controller.dart`、`player_page.dart`                 |
 | 新增-10 | 首页「最近播放」横滑卡片，本地持久化                       | `app_state.dart`、`home_page.dart`、`player_controller.dart` |
+| 新增-11 | 本地音乐多选：全选、批量加入队列/歌单、批量删除             | `library_page.dart`、`api_client.dart`、`library.go`         |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。
@@ -45,7 +47,7 @@
 
 | 优先级 | 候选                                                     | 说明                                                         |
 | ------ | -------------------------------------------------------- | ------------------------------------------------------------ |
-| P2     | 本地音乐批量管理                                         | 多选删除、按目录/歌手分组、手动「重新扫描」入口更显眼        |
+| P2     | 本地音乐按歌手/专辑分组浏览                              | 多选与批量删除已完成，继续补分组视图                         |
 | P2     | 桌面端打包补齐（Linux 优先）                             | 需要 `libgtk-3-dev` 等依赖；CI 增加桌面构建 job              |
 | P3     | 浅色主题                                                 | 目前固定深色；需要统一 `AppColors` 并逐页检查对比度          |
 | P3     | iOS 真机验收                                             | 计划见 `docs/ios-release-test-plan.md`，需要 macOS 环境      |

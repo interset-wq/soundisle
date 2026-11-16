@@ -75,6 +75,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("GET /api/library/stream", s.handleLibraryStream)
 	mux.HandleFunc("GET /api/library/cover", s.handleLibraryCover)
 	mux.HandleFunc("DELETE /api/library", s.handleLibraryDelete)
+	mux.HandleFunc("POST /api/library/delete", s.handleLibraryDeleteMany)
 	mux.HandleFunc("POST /api/download", s.handleDownload)
 	mux.HandleFunc("GET /api/downloads", s.handleDownloads)
 	mux.HandleFunc("DELETE /api/downloads/{id}", s.handleDeleteDownload)
@@ -442,6 +443,27 @@ func (s *Service) handleLibraryDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleLibraryDeleteMany backs multi-select deletion in the local library.
+func (s *Service) handleLibraryDeleteMany(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Paths []string `json:"paths"`
+	}
+	if err := decodeJSON(r, &payload); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(payload.Paths) == 0 {
+		writeError(w, http.StatusBadRequest, "paths is required")
+		return
+	}
+	if len(payload.Paths) > 500 {
+		writeError(w, http.StatusBadRequest, "一次最多删除 500 首")
+		return
+	}
+	deleted, failed := s.Library.DeleteMany(payload.Paths)
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": deleted, "failed": failed})
 }
 
 func (s *Service) handleDownload(w http.ResponseWriter, r *http.Request) {

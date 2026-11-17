@@ -37,6 +37,9 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
   final Set<String> _selectedSources = {};
   List<String> _history = [];
   String _lastQuery = '';
+  // Incremented for every new query/source change so an older, slower request
+  // cannot overwrite the results of a newer search.
+  int _searchGeneration = 0;
   bool _parsingLink = false;
   bool _sourcesInitialized = false;
 
@@ -116,6 +119,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
     }
     setState(() {
       _lastQuery = query;
+      _searchGeneration++;
       _results.clear();
       _errors.clear();
       _loadingTypes.clear();
@@ -174,27 +178,30 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
     if (_results.containsKey(type) && _errors[type] == null) return;
     final api = context.read<ApiClient>();
     final sources = _selectedSources.toList();
+    final generation = _searchGeneration;
+    final query = _lastQuery;
     setState(() {
       _loadingTypes.add(type);
       _errors.remove(type);
     });
     try {
       final response = await api.search(
-        query: _lastQuery,
+        query: query,
         type: type,
         sources: sources.isEmpty ? const ['netease'] : sources,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _results[type] = response;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _errors[type] = error is ApiException ? error.message : '$error';
       });
     } finally {
-      if (mounted) {
+      // A newer search owns the loading flag now; do not clear it here.
+      if (mounted && generation == _searchGeneration) {
         setState(() {
           _loadingTypes.remove(type);
         });
@@ -212,8 +219,10 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
     });
     if (_lastQuery.isNotEmpty) {
       setState(() {
+        _searchGeneration++;
         _results.clear();
         _errors.clear();
+        _loadingTypes.clear();
       });
       _searchType(_currentType);
     }

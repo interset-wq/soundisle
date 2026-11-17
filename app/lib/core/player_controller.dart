@@ -145,6 +145,9 @@ class PlayerController extends ChangeNotifier {
     notifyListeners();
     try {
       final info = await api.play(song);
+      // A second tap may have selected another song while this request was in
+      // flight; never let the older response replace the newer track.
+      if (current?.key != song.key) return;
       playInfo = info;
       final cover = api.coverUrl(song.cover, source: song.source);
       await player.setAudioSource(AudioSource.uri(
@@ -157,18 +160,20 @@ class PlayerController extends ChangeNotifier {
           artUri: cover.isEmpty ? null : Uri.parse(cover),
         ),
       ));
+      if (current?.key != song.key) return;
       if (speed != 1.0) {
         await player.setSpeed(speed);
       }
       await player.play();
       unawaited(loadLyrics(song));
     } catch (error) {
+      if (current?.key != song.key) return;
       errorText = error is ApiException ? error.message : '$error';
-      loading = false;
-      notifyListeners();
     } finally {
-      loading = false;
-      notifyListeners();
+      if (current?.key == song.key) {
+        loading = false;
+        notifyListeners();
+      }
     }
   }
 

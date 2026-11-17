@@ -485,7 +485,11 @@ func (s *Service) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tasks := s.Downloads.Enqueue(payload.Songs)
-	writeJSON(w, http.StatusAccepted, map[string]any{"tasks": tasks, "total": len(tasks)})
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"tasks":   tasks,
+		"total":   len(tasks),
+		"skipped": len(payload.Songs) - len(tasks),
+	})
 }
 
 func (s *Service) handleDownloads(w http.ResponseWriter, r *http.Request) {

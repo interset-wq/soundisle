@@ -8,7 +8,6 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
-import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
@@ -219,8 +218,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
                           ? null
                           : () async {
                               try {
-                                await app.downloadSongs(_songs);
-                                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
+                                final result = await app.downloadSongs(_songs);
+                                if (context.mounted) {
+                                  showAppSnack(context, app.describeDownloadEnqueue(result));
+                                }
                               } catch (error) {
                                 if (context.mounted) showAppSnack(context, '$error');
                               }
@@ -312,8 +313,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
               title: const Text('下载全部'),
               onTap: () async {
                 Navigator.pop(sheet);
-                await app.downloadSongs(_songs);
-                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
+                final result = await app.downloadSongs(_songs);
+                if (context.mounted) {
+                  showAppSnack(context, app.describeDownloadEnqueue(result));
+                }
               },
             ),
             if (widget.type == 'playlist' && widget.id.isNotEmpty)

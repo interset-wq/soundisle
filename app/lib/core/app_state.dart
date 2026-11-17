@@ -299,9 +299,23 @@ class AppState extends ChangeNotifier {
         'themeMode': settings.themeMode,
       };
 
-  Future<void> downloadSongs(List<Song> songs) async {
-    await api.download(songs);
+  Future<DownloadEnqueueResult> downloadSongs(List<Song> songs) async {
+    final result = await api.download(songs);
     await refreshDownloads();
+    return result;
+  }
+
+  /// Snackbar text for a download request. Mentions skipped songs so a second
+  /// tap on an already downloaded track does not look like a silent failure.
+  String describeDownloadEnqueue(DownloadEnqueueResult result) {
+    final suffix = StorageBridge.supported ? '，完成后会自动保存到系统音乐' : '';
+    if (result.queued == 0) {
+      return result.skipped > 0 ? '这些歌曲已经在本地或下载队列中' : '没有可下载的歌曲';
+    }
+    if (result.skipped > 0) {
+      return '已加入下载队列 ${result.queued} 首，${result.skipped} 首已存在$suffix';
+    }
+    return '已加入下载队列$suffix';
   }
 
   Future<void> removeDownload(String id) async {

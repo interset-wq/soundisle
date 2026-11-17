@@ -395,6 +395,16 @@ class Collection {
       );
 }
 
+/// Outcome of asking the backend to download one or more songs. Songs that
+/// are already queued or already on disk are skipped, so the UI can tell the
+/// user why a repeated tap did not create another task.
+class DownloadEnqueueResult {
+  const DownloadEnqueueResult({required this.queued, required this.skipped});
+
+  final int queued;
+  final int skipped;
+}
+
 class DownloadTask {
   const DownloadTask({
     required this.id,

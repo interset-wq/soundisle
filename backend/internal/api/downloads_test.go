@@ -352,3 +352,46 @@ func TestRepairMissingAssetsQueuesOldDownloads(t *testing.T) {
 	}
 	t.Fatal("bulk repair did not fetch both covers in time")
 }
+
+func TestEnqueueSkipsSongsAlreadyQueuedOrOnDisk(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	m := newTestDownloadManager(t, dir, store)
+	audio := filepath.Join(dir, "Artist - One.mp3")
+	if err := os.WriteFile(audio, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write audio: %v", err)
+	}
+	m.tasks["dl-one"] = &DownloadTask{
+		ID: "dl-one", Status: "done", Path: audio,
+		Song: model.Song{ID: "1", Source: "netease", Name: "One"},
+	}
+	m.tasks["dl-two"] = &DownloadTask{
+		ID: "dl-two", Status: "downloading",
+		Song: model.Song{ID: "2", Source: "netease", Name: "Two"},
+	}
+	m.tasks["dl-gone"] = &DownloadTask{
+		ID: "dl-gone", Status: "done", Path: filepath.Join(dir, "gone.mp3"),
+		Song: model.Song{ID: "3", Source: "netease", Name: "Gone"},
+	}
+	m.order = []string{"dl-one", "dl-two", "dl-gone"}
+
+	queued := m.Enqueue([]model.Song{
+		{ID: "1", Source: "netease", Name: "One"},
+		{ID: "2", Source: "netease", Name: "Two"},
+		{ID: "3", Source: "netease", Name: "Gone"},
+		{ID: "1", Source: "netease", Name: "One"},
+		{ID: "4", Source: "qq", Name: "Other platform"},
+	})
+	if len(queued) != 2 {
+		t.Fatalf("queued %d tasks, want 2: %+v", len(queued), queued)
+	}
+	if queued[0].Song.ID != "3" || queued[1].Song.ID != "4" {
+		t.Fatalf("unexpected queued songs: %q, %q", queued[0].Song.ID, queued[1].Song.ID)
+	}
+	if len(m.order) != 5 {
+		t.Fatalf("order has %d entries, want 5", len(m.order))
+	}
+}

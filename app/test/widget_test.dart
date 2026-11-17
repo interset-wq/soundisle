@@ -54,6 +54,23 @@ void main() {
     expect(response.songs.first.name, 'A');
   });
 
+  test('download message explains skipped songs', () {
+    final app = AppState(
+      ApiClient(baseUrl: 'http://127.0.0.1:1', token: 'test'),
+    );
+    final mixed = app.describeDownloadEnqueue(
+      const DownloadEnqueueResult(queued: 2, skipped: 1),
+    );
+    expect(mixed, contains('2 首'));
+    expect(mixed, contains('1 首已存在'));
+    expect(
+      app.describeDownloadEnqueue(
+        const DownloadEnqueueResult(queued: 0, skipped: 3),
+      ),
+      contains('已经在本地'),
+    );
+  });
+
   test('recently played keeps newest first and de-duplicates', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});

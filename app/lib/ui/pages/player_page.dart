@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
-import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
@@ -312,8 +311,10 @@ class _PlayerPageState extends State<PlayerPage> {
           label: '下载',
           onTap: () async {
             try {
-              await app.downloadSongs([song]);
-              if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
+              final result = await app.downloadSongs([song]);
+              if (context.mounted) {
+                showAppSnack(context, app.describeDownloadEnqueue(result));
+              }
             } catch (error) {
               if (context.mounted) showAppSnack(context, '$error');
             }

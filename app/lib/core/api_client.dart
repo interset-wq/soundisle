@@ -332,8 +332,16 @@ class ApiClient {
         .toList();
   }
 
-  Future<void> download(List<Song> songs) async {
-    await _request('POST', '/api/download', body: {'songs': songs.map((e) => e.toJson()).toList()});
+  Future<DownloadEnqueueResult> download(List<Song> songs) async {
+    final json = await _request(
+      'POST',
+      '/api/download',
+      body: {'songs': songs.map((e) => e.toJson()).toList()},
+    ) as Map<String, dynamic>;
+    return DownloadEnqueueResult(
+      queued: (json['total'] as num?)?.toInt() ?? 0,
+      skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+    );
   }
 
   Future<void> removeDownload(String id) => _request('DELETE', '/api/downloads/$id');

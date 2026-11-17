@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
-import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
@@ -215,8 +214,10 @@ class CollectionPage extends StatelessWidget {
               title: const Text('下载全部'),
               onTap: () async {
                 Navigator.pop(sheet);
-                await app.downloadSongs(collection.songs);
-                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
+                final result = await app.downloadSongs(collection.songs);
+                if (context.mounted) {
+                  showAppSnack(context, app.describeDownloadEnqueue(result));
+                }
               },
             ),
             if (!collection.isFavorites)

@@ -5,7 +5,6 @@ import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
-import '../../core/storage_bridge.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_art.dart';
@@ -333,8 +332,10 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                         onPressed: _songs.isEmpty
                             ? null
                             : () async {
-                                await app.downloadSongs(_songs);
-                                if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
+                                final result = await app.downloadSongs(_songs);
+                                if (context.mounted) {
+                                  showAppSnack(context, app.describeDownloadEnqueue(result));
+                                }
                               },
                         icon: const Icon(Icons.download_rounded),
                       ),

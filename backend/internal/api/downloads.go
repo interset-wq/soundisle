@@ -195,14 +195,46 @@ func (m *DownloadManager) flush() {
 	_ = os.Rename(tmp, path)
 }
 
+// songIdentity keys a song by platform and id. It is used to keep repeated
+// download taps (or "download all" on an album that is partly downloaded) from
+// creating a second task for the same file.
+func songIdentity(song model.Song) string {
+	source := strings.TrimSpace(song.Source)
+	id := strings.TrimSpace(song.ID)
+	if source == "" || id == "" {
+		return ""
+	}
+	return source + "\x00" + id
+}
+
 func (m *DownloadManager) Enqueue(songs []model.Song) []DownloadTask {
 	now := time.Now()
 	out := make([]DownloadTask, 0, len(songs))
 	m.mu.Lock()
-	for _, song := range songs {
-		if strings.TrimSpace(song.ID) == "" || strings.TrimSpace(song.Source) == "" {
+	// Treat queued/in-flight tasks and finished tasks whose file is still on
+	// disk as already present. A finished task whose file disappeared is left
+	// out so the user can download the song again.
+	present := make(map[string]bool, len(m.tasks))
+	for _, task := range m.tasks {
+		key := songIdentity(task.Song)
+		if key == "" {
 			continue
 		}
+		switch task.Status {
+		case "waiting", "downloading":
+			present[key] = true
+		case "done":
+			if task.Path != "" && fileExists(task.Path) {
+				present[key] = true
+			}
+		}
+	}
+	for _, song := range songs {
+		key := songIdentity(song)
+		if key == "" || present[key] {
+			continue
+		}
+		present[key] = true
 		id := newID("dl")
 		task := &DownloadTask{
 			ID: id, Name: song.Name, Artist: song.Artist, Album: song.Album,

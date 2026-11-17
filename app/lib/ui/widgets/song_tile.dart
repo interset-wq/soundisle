@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/player_controller.dart';
-import '../../core/storage_bridge.dart';
 import '../pages/playlist_page.dart';
 import '../theme.dart';
 import 'common.dart';
@@ -250,8 +249,10 @@ Future<void> showSongActions(BuildContext context, Song song) async {
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     try {
-                      await app.downloadSongs([song]);
-                      if (context.mounted) showAppSnack(context, StorageBridge.queuedMessage);
+                      final result = await app.downloadSongs([song]);
+                      if (context.mounted) {
+                        showAppSnack(context, app.describeDownloadEnqueue(result));
+                      }
                     } catch (error) {
                       if (context.mounted) showAppSnack(context, '$error');
                     }

@@ -54,6 +54,12 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  Future<void> _refreshNotificationStatus() async {
+    final status = await AppPermissions.notificationStatus();
+    if (!mounted) return;
+    setState(() => _notificationStatus = status);
+  }
+
   Future<void> _loadCookies() async {
     final api = context.read<ApiClient>();
     try {
@@ -232,7 +238,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     title: const Text('播放通知'),
                     subtitle: Text(_notificationStatus!.label),
-                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    trailing: IconButton(
+                      tooltip: '刷新通知状态',
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      onPressed: _refreshNotificationStatus,
+                    ),
                     onTap: AppPermissions.openNotificationSettings,
                   ),
                 ListTile(

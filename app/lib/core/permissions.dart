@@ -33,6 +33,7 @@ class AppPermissions {
         appEnabled: raw['appEnabled'] == true,
         channelExists: raw['channelExists'] == true,
         channelImportance: (raw['channelImportance'] as num?)?.toInt() ?? -1,
+        activeNotifications: (raw['activeNotifications'] as num?)?.toInt() ?? 0,
       );
     } catch (_) {
       return null;
@@ -54,6 +55,7 @@ class NotificationStatus {
     required this.appEnabled,
     required this.channelExists,
     required this.channelImportance,
+    this.activeNotifications = 0,
   });
 
   final bool enabled;
@@ -61,12 +63,14 @@ class NotificationStatus {
   final bool appEnabled;
   final bool channelExists;
   final int channelImportance;
+  final int activeNotifications;
 
   String get label {
     if (!permissionGranted) return '未授权 · 点按打开设置';
     if (!appEnabled) return '系统已关闭通知 · 点按打开设置';
     if (!channelExists) return '已授权 · 播放后创建通知';
     if (channelImportance <= 0) return '通知渠道已关闭 · 点按打开设置';
-    return '已启用';
+    if (activeNotifications > 0) return '已启用 · 通知已显示';
+    return '已启用 · 播放后显示';
   }
 }

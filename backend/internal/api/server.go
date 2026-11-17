@@ -80,6 +80,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("GET /api/downloads", s.handleDownloads)
 	mux.HandleFunc("DELETE /api/downloads/{id}", s.handleDeleteDownload)
 	mux.HandleFunc("POST /api/downloads/{id}/retry", s.handleRetryDownload)
+	mux.HandleFunc("POST /api/downloads/{id}/repair", s.handleRepairDownload)
 	mux.HandleFunc("GET /api/collections", s.handleCollections)
 	mux.HandleFunc("POST /api/collections", s.handleCollections)
 	mux.HandleFunc("GET /api/collections/{id}", s.handleCollection)
@@ -499,6 +500,16 @@ func (s *Service) handleDeleteDownload(w http.ResponseWriter, r *http.Request) {
 // app being killed, so the user does not have to search for the song again.
 func (s *Service) handleRetryDownload(w http.ResponseWriter, r *http.Request) {
 	task, err := s.Downloads.Retry(r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
+}
+
+// handleRepairDownload fetches missing lyrics/cover for a finished download.
+func (s *Service) handleRepairDownload(w http.ResponseWriter, r *http.Request) {
+	task, err := s.Downloads.RepairAssets(r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

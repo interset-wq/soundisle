@@ -406,6 +406,8 @@ class DownloadTask {
     this.status = 'waiting',
     this.error = '',
     this.path = '',
+    this.lyricPath = '',
+    this.coverPath = '',
     this.total = 0,
     this.received = 0,
   });
@@ -419,6 +421,8 @@ class DownloadTask {
   final String status;
   final String error;
   final String path;
+  final String lyricPath;
+  final String coverPath;
   final int total;
   final int received;
 
@@ -434,6 +438,8 @@ class DownloadTask {
         status: '${json['status'] ?? 'waiting'}',
         error: '${json['error'] ?? ''}',
         path: '${json['path'] ?? ''}',
+        lyricPath: '${json['lyricPath'] ?? ''}',
+        coverPath: '${json['coverPath'] ?? ''}',
         total: (json['total'] as num?)?.toInt() ?? 0,
         received: (json['received'] as num?)?.toInt() ?? 0,
       );

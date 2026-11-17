@@ -314,6 +314,11 @@ class AppState extends ChangeNotifier {
     await refreshDownloads();
   }
 
+  Future<void> repairDownloadAssets(String id) async {
+    await api.repairDownload(id);
+    await refreshDownloads();
+  }
+
   @override
   void dispose() {
     _downloadTimer?.cancel();

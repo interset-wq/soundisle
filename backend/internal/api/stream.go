@@ -422,6 +422,114 @@ func (m *StreamManager) resolveFromOtherSources(ctx context.Context, song model.
 	return nil, "", nil, lastErr
 }
 
+// searchSimilar returns title/artist matches across the available platforms,
+// best match first. It is used for metadata fallbacks (lyrics) where we must
+// not resolve or download the other platform's audio.
+func (m *StreamManager) searchSimilar(song model.Song) []model.Song {
+	query := strings.TrimSpace(song.Name + " " + song.Artist)
+	if query == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	seen := map[string]bool{}
+	sourceIDs := make([]string, 0, len(defaultSearchSources)+1)
+	for _, id := range append(append([]string{}, defaultSearchSources...), "soda") {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		sourceIDs = append(sourceIDs, id)
+	}
+
+	type searchResult struct {
+		source string
+		songs  []model.Song
+	}
+	results := make(chan searchResult, len(sourceIDs))
+	var wg sync.WaitGroup
+	for _, id := range sourceIDs {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			p, err := newProvider(id, m.store.Cookie(id))
+			if err != nil || p.search == nil {
+				results <- searchResult{source: id}
+				return
+			}
+			done := make(chan struct{})
+			var songs []model.Song
+			go func() {
+				defer close(done)
+				songs, _ = p.search(query)
+			}()
+			select {
+			case <-done:
+			case <-ctx.Done():
+			case <-time.After(10 * time.Second):
+			}
+			results <- searchResult{source: id, songs: songs}
+		}(id)
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	wantTitle := normalizeTitle(song.Name)
+	wantArtist := normalizeTitle(song.Artist)
+	type candidate struct {
+		song  model.Song
+		score int
+	}
+	candidates := make([]candidate, 0, 16)
+	for result := range results {
+		for _, found := range result.songs {
+			if strings.TrimSpace(found.ID) == "" {
+				continue
+			}
+			if found.Source == "" {
+				found.Source = result.source
+			}
+			if found.Source == song.Source && found.ID == song.ID {
+				continue
+			}
+			title := normalizeTitle(found.Name)
+			if title == "" {
+				continue
+			}
+			score := 0
+			switch {
+			case title == wantTitle:
+				score += 100
+			case strings.Contains(title, wantTitle) || strings.Contains(wantTitle, title):
+				score += 55
+			default:
+				continue
+			}
+			artist := normalizeTitle(found.Artist)
+			if wantArtist != "" && artist != "" {
+				switch {
+				case artist == wantArtist:
+					score += 50
+				case strings.Contains(artist, wantArtist) || strings.Contains(wantArtist, artist):
+					score += 30
+				}
+			}
+			candidates = append(candidates, candidate{song: found, score: score})
+		}
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].score > candidates[j].score
+	})
+	out := make([]model.Song, 0, len(candidates))
+	for _, item := range candidates {
+		out = append(out, item.song)
+	}
+	return out
+}
+
 func normalizeTitle(value string) string {
 	var builder strings.Builder
 	for _, r := range strings.ToLower(value) {

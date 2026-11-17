@@ -17,12 +17,12 @@ import (
 
 // Settings are user preferences that belong to this installation.
 type Settings struct {
-	DownloadDir       string `json:"downloadDir"`
-	FilenameTemplate  string `json:"filenameTemplate"`
-	EmbedLyrics       bool   `json:"embedLyrics"`
-	DefaultSearch     []string `json:"defaultSearchSources"`
-	PreferredQuality  string `json:"preferredQuality"`
-	ThemeMode         string `json:"themeMode"`
+	DownloadDir      string   `json:"downloadDir"`
+	FilenameTemplate string   `json:"filenameTemplate"`
+	EmbedLyrics      bool     `json:"embedLyrics"`
+	DefaultSearch    []string `json:"defaultSearchSources"`
+	PreferredQuality string   `json:"preferredQuality"`
+	ThemeMode        string   `json:"themeMode"`
 }
 
 // Collection is a user-created playlist or the built-in favorites list.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,6 +28,8 @@ type DownloadTask struct {
 	Status    string     `json:"status"` // waiting | downloading | done | failed | canceled
 	Error     string     `json:"error,omitempty"`
 	Path      string     `json:"path,omitempty"`
+	LyricPath string     `json:"lyricPath,omitempty"`
+	CoverPath string     `json:"coverPath,omitempty"`
 	Total     int64      `json:"total"`
 	Received  int64      `json:"received"`
 	CreatedAt time.Time  `json:"createdAt"`
@@ -37,8 +40,9 @@ type DownloadTask struct {
 	Partial string `json:"partial,omitempty"`
 	// Song is kept so history survives restarts and a failed task can be
 	// retried without re-searching for the track.
-	Song     model.Song `json:"song"`
-	canceled bool
+	Song      model.Song `json:"song"`
+	canceled  bool
+	repairing bool
 }
 
 type DownloadManager struct {
@@ -115,6 +119,20 @@ func (m *DownloadManager) load() {
 				}
 			} else {
 				task.Partial = ""
+			}
+		}
+		// Backfill sidecars for tasks created by older versions: the files are
+		// already on disk even though the record has no paths yet.
+		if task.Status == "done" && task.Path != "" {
+			if task.LyricPath == "" {
+				if lrc := lyricSidecarPath(task.Path); fileExists(lrc) {
+					task.LyricPath = lrc
+				}
+			}
+			if task.CoverPath == "" {
+				if side := findSidecarCover(task.Path); side.path != "" {
+					task.CoverPath = side.path
+				}
 			}
 		}
 		task.canceled = false
@@ -277,6 +295,8 @@ func (m *DownloadManager) Retry(id string) (DownloadTask, error) {
 	task.Total = 0
 	task.Received = 0
 	task.Finished = nil
+	task.LyricPath = ""
+	task.CoverPath = ""
 	task.canceled = false
 	task.UpdatedAt = time.Now()
 	snapshot := *task
@@ -284,6 +304,83 @@ func (m *DownloadManager) Retry(id string) (DownloadTask, error) {
 	m.mu.Unlock()
 
 	m.queue <- id
+	return snapshot, nil
+}
+
+// RepairAssets re-fetches missing lyrics/cover for an already downloaded file.
+// This is what lets songs downloaded before 1.0.3 gain their artwork and lyrics
+// without re-downloading the audio.
+func (m *DownloadManager) RepairAssets(id string) (DownloadTask, error) {
+	m.mu.Lock()
+	task, ok := m.tasks[id]
+	if !ok {
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("下载任务不存在")
+	}
+	if task.Status != "done" {
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("只有已完成的下载才能补全资源")
+	}
+	if task.Path == "" || !fileExists(task.Path) {
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("下载文件不存在，请重新下载")
+	}
+	if task.repairing {
+		m.mu.Unlock()
+		return DownloadTask{}, errors.New("正在补全，请稍候")
+	}
+	task.repairing = true
+	target := task.Path
+	song := task.Song
+	snapshot := *task
+	m.mu.Unlock()
+
+	go func() {
+		defer func() {
+			m.mu.Lock()
+			if current, ok := m.tasks[id]; ok {
+				current.repairing = false
+			}
+			m.mu.Unlock()
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		lyricPath := ""
+		if existing := lyricSidecarPath(target); fileExists(existing) {
+			lyricPath = existing
+		}
+		coverPath := ""
+		if side := findSidecarCover(target); side.path != "" {
+			coverPath = side.path
+		}
+
+		var jobs sync.WaitGroup
+		if lyricPath == "" {
+			jobs.Add(1)
+			go func() {
+				defer jobs.Done()
+				lyricPath = m.saveLyric(target, song)
+			}()
+		}
+		if coverPath == "" {
+			jobs.Add(1)
+			go func() {
+				defer jobs.Done()
+				coverPath = m.saveCover(ctx, target, song)
+			}()
+		}
+		jobs.Wait()
+
+		m.Update(id, func(t *DownloadTask) {
+			if lyricPath != "" {
+				t.LyricPath = lyricPath
+			}
+			if coverPath != "" {
+				t.CoverPath = coverPath
+			}
+		})
+	}()
 	return snapshot, nil
 }
 
@@ -383,22 +480,165 @@ func (m *DownloadManager) process(id string) {
 	}
 	m.Update(id, func(t *DownloadTask) { t.Partial = "" })
 
-	if m.withLyric {
-		if p, err := m.streams.provider(task.Song.Source); err == nil && p.lyric != nil {
-			if lrc, err := p.lyric(&task.Song); err == nil && strings.TrimSpace(lrc) != "" {
-				lrcPath := strings.TrimSuffix(target, filepath.Ext(target)) + ".lrc"
-				_ = os.WriteFile(lrcPath, []byte(lrc), 0o644)
-			}
-		}
-	}
+	// Lyrics and cover art are part of "downloaded", not optional extras: a
+	// local song without them looks broken in the player. Both requests are
+	// best-effort and run in parallel so a missing cover never blocks audio.
+	var lyricPath, coverPath string
+	var assets sync.WaitGroup
+	assets.Add(2)
+	go func() {
+		defer assets.Done()
+		lyricPath = m.saveLyric(target, task.Song)
+	}()
+	go func() {
+		defer assets.Done()
+		coverPath = m.saveCover(ctx, target, task.Song)
+	}()
+	assets.Wait()
+
 	now := time.Now()
 	m.Update(id, func(t *DownloadTask) {
 		t.Status = "done"
 		t.Path = target
+		t.LyricPath = lyricPath
+		t.CoverPath = coverPath
 		t.Total = written
 		t.Received = written
 		t.Finished = &now
 	})
+}
+
+// saveLyric writes a `.lrc` sidecar next to the downloaded track. It tries the
+// song's own platform first, then searches other platforms for the same title
+// and artist, because many providers only expose lyrics on some catalogues.
+func (m *DownloadManager) saveLyric(target string, song model.Song) string {
+	if !m.withLyric {
+		return ""
+	}
+	lrc := m.findLyric(song)
+	if strings.TrimSpace(lrc) == "" {
+		return ""
+	}
+	path := lyricSidecarPath(target)
+	if err := writeFileAtomic(path, []byte(lrc)); err != nil {
+		return ""
+	}
+	return path
+}
+
+func (m *DownloadManager) findLyric(song model.Song) string {
+	if p, err := m.streams.provider(song.Source); err == nil && p.lyric != nil {
+		if lrc, err := p.lyric(&song); err == nil && strings.TrimSpace(lrc) != "" {
+			return lrc
+		}
+	}
+	// Cross-source fallback: reuse the search used for playback, but only read
+	// lyrics and never resolve/download the other platform's audio.
+	candidates := m.streams.searchSimilar(song)
+	for i, candidate := range candidates {
+		if i >= 6 {
+			break
+		}
+		if candidate.Source == song.Source && candidate.ID == song.ID {
+			continue
+		}
+		p, err := m.streams.provider(candidate.Source)
+		if err != nil || p.lyric == nil {
+			continue
+		}
+		if lrc, err := p.lyric(&candidate); err == nil && strings.TrimSpace(lrc) != "" {
+			return lrc
+		}
+	}
+	return ""
+}
+
+const maxCoverBytes = 12 << 20
+
+// saveCover downloads the platform's cover art and stores it next to the audio
+// file. Without this, local playback only had artwork when the audio file
+// happened to carry an embedded picture.
+func (m *DownloadManager) saveCover(ctx context.Context, target string, song model.Song) string {
+	raw := strings.TrimSpace(song.Cover)
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(raw, "//") {
+		raw = "https:" + raw
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return ""
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
+	if err != nil {
+		return ""
+	}
+	for key, values := range sourceHeaders(song.Source) {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+	if cookie := m.store.Cookie(song.Source); cookie != "" {
+		req.Header.Set("Cookie", cookie)
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return ""
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxCoverBytes+1))
+	if err != nil || len(data) == 0 || len(data) > maxCoverBytes {
+		return ""
+	}
+	mime := strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])
+	if mime == "" || mime == "application/octet-stream" {
+		mime = http.DetectContentType(data)
+	}
+	if !strings.HasPrefix(mime, "image/") {
+		return ""
+	}
+	ext := ".jpg"
+	switch mime {
+	case "image/png":
+		ext = ".png"
+	case "image/webp":
+		ext = ".webp"
+	case "image/gif":
+		ext = ".gif"
+	case "image/jpeg", "image/jpg":
+		ext = ".jpg"
+	}
+	base := strings.TrimSuffix(target, filepath.Ext(target))
+	for _, old := range sidecarCoverExts {
+		_ = os.Remove(base + ".cover" + old)
+	}
+	path := base + ".cover" + ext
+	if err := writeFileAtomic(path, data); err != nil {
+		return ""
+	}
+	return path
+}
+
+func writeFileAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 func (m *DownloadManager) fail(id string, err error) {

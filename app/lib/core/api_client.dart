@@ -340,6 +340,8 @@ class ApiClient {
 
   Future<void> retryDownload(String id) => _request('POST', '/api/downloads/$id/retry');
 
+  Future<void> repairDownload(String id) => _request('POST', '/api/downloads/$id/repair');
+
   Future<Map<String, String>> cookies() async {
     final json = await _request('GET', '/api/cookies') as Map<String, dynamic>;
     final raw = json['cookies'];
@@ -365,6 +367,10 @@ class ApiClient {
     }) as Map<String, dynamic>;
     return QrStatus(status: '${json['status'] ?? ''}', message: '${json['message'] ?? ''}');
   }
+
+  /// URL for a cover image stored next to a local download.
+  String localCoverUrl(String path) =>
+      '$baseUrl/api/library/cover?path=${Uri.encodeQueryComponent(path)}&token=$token';
 
   String coverUrl(String? raw, {String source = ''}) {
     if (raw == null || raw.trim().isEmpty) return '';

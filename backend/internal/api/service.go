@@ -37,10 +37,10 @@ type DetailResponse struct {
 }
 
 type TopListGroup struct {
-	Source string         `json:"source"`
-	Name   string         `json:"name"`
+	Source string          `json:"source"`
+	Name   string          `json:"name"`
 	Lists  []model.TopList `json:"lists"`
-	Error  string         `json:"error,omitempty"`
+	Error  string          `json:"error,omitempty"`
 }
 
 type CategoryGroup struct {
@@ -392,6 +392,16 @@ func (s *Service) HotSongs(source string, limit int) ([]model.Song, error) {
 }
 
 func (s *Service) Lyrics(source string, song model.Song) (string, error) {
+	if source == "local" {
+		path := strings.TrimSpace(song.Link)
+		if path == "" && song.Extra != nil {
+			path = strings.TrimSpace(song.Extra["path"])
+		}
+		if s.Library == nil {
+			return "", errors.New("本地音乐库未初始化")
+		}
+		return s.Library.Lyrics(path)
+	}
 	p, err := s.provider(source)
 	if err != nil {
 		return "", err

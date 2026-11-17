@@ -1,7 +1,12 @@
-# 第三版规划（1.0.2）
+# 第三版规划（1.0.2 → 1.0.3）
 
-> 状态：**已发布预发布 `v1.0.2-android.18`**（稳定 release 签名）。
-> 上一版为 `v1.0.1-android.*`（1.0.1，debug 签名）。
+> 状态：**1.0.3 开发中**；上一预发布为 `v1.0.2-android.18`（稳定 release 签名）。
+> 更早版本为 `v1.0.1-android.*`（1.0.1，debug 签名）。
+
+## 0. 平台节奏
+
+Android 是当前唯一验收平台。通知、下载、媒体库、后台播放等问题先在 Android 上收口，
+稳定后再开始 Windows/macOS/Linux 与 iOS 适配，避免多平台同时改动导致问题难以定位。
 
 ## 1. 版本目标
 
@@ -16,7 +21,9 @@
 - 卸载重装后，之前导出到 `Music/声屿` 的歌曲能一键导回；
 - 首页能直接看到最近播放过的歌曲；
 - 本地音乐能多选后批量加入队列/歌单或删除；
-- 本地音乐能按歌手/专辑分组浏览。
+- 本地音乐能按歌手/专辑分组浏览；
+- 下载歌曲时自动同时保存歌词和封面；
+- release 包的通知小图标不能被资源压缩误删。
 
 ## 2. 已完成
 
@@ -35,24 +42,36 @@
 | 新增-10 | 首页「最近播放」横滑卡片，本地持久化                       | `app_state.dart`、`home_page.dart`、`player_controller.dart` |
 | 新增-11 | 本地音乐多选：全选、批量加入队列/歌单、批量删除             | `library_page.dart`、`api_client.dart`、`library.go`         |
 | 新增-12 | 本地音乐按歌手/专辑分组，分组可展开与整组播放               | `local_grouping.dart`、`library_page.dart`                   |
+| BUG-105 | Release 资源压缩误删通知小图标，媒体通知完全不显示          | `app/android/app/src/main/res/raw/keep.xml`、`AndroidManifest.xml` |
+| 新增-13 | 下载自动保存 `.lrc` 与 `.cover.*`；本地播放可读侧车文件；导出/导入一并处理 | `downloads.go`、`library.go`、`MainActivity.kt` |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。
 
 ## 3. 发布记录
 
+### 1.0.2
+
 1. 4 个签名 secret 已通过 `gh secret set` 写入仓库；
 2. 推 tag `v1.0.2` 后 CI 产出预发布 `v1.0.2-android.18`，含 `soundisle-android.apk` 与 `apk-certs.txt`；
 3. APK 校验：`1.0.2 (3)`、仅 `arm64-v8a`、签名 SHA-256 `B9:33:E6:…:7E:C2:23`；
 4. 从 1.0.1 升级需先卸载一次（签名更换），之后可直接覆盖。
 
-## 4. 下一批候选（按收益排序）
+### 1.0.3
+
+1. 版本号 `1.0.3+4`；计划推 tag `v1.0.3` 触发 CI；
+2. 已修复 release 资源压缩误删 `drawable/ic_stat_soundisle` 的问题，压缩日志应显示 `reachable from keep xml file`；
+3. 下载任务完成后自动写 `<歌曲>.lrc` 与 `<歌曲>.cover.jpg/png/webp`，Android 导出/导入会同步处理侧车；
+4. 关于页「播放通知」显示在途通知数量，并支持手动刷新。
+
+## 4. 下一批候选（Android 收口后再启动跨平台）
 
 | 优先级 | 候选                                                     | 说明                                                         |
 | ------ | -------------------------------------------------------- | ------------------------------------------------------------ |
-| P2     | 桌面端打包补齐（Linux 优先）                             | 需要 `libgtk-3-dev` 等依赖；CI 增加桌面构建 job              |
+| P1     | Android 通知/下载/本地库稳定性回归                       | 继续跟随真机反馈修，暂不扩散到其他平台                       |
+| P2     | 桌面端打包补齐（Linux 优先）                             | Android 稳定后再做；需要 `libgtk-3-dev` 等依赖               |
 | P3     | 浅色主题                                                 | 目前固定深色；需要统一 `AppColors` 并逐页检查对比度          |
-| P3     | iOS 真机验收                                             | 计划见 `docs/ios-release-test-plan.md`，需要 macOS 环境      |
+| P3     | iOS 真机验收                                             | Android 收口后再做；计划见 `docs/ios-release-test-plan.md`   |
 
 ## 5. 明确不做（本期）
 

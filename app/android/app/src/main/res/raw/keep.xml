@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  audio_service resolves the media notification's small icon by resource name
+  from Dart (`androidNotificationIcon: 'drawable/ic_stat_soundisle'`). The
+  resource shrinker cannot see that reference, so it strips the drawable and
+  Notification.Builder#setSmallIcon(0) fails - the notification never appears.
+  Keep it explicitly here.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_soundisle" />

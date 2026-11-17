@@ -91,12 +91,18 @@ class MainActivity : AudioServiceActivity() {
             true
         }
         val channel = manager.getNotificationChannel("app.soundisle.channel.audio")
+        val active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            manager.activeNotifications.size
+        } else {
+            0
+        }
         return mapOf(
             "granted" to (granted && manager.areNotificationsEnabled()),
             "permissionGranted" to granted,
             "appEnabled" to manager.areNotificationsEnabled(),
             "channelExists" to (channel != null),
             "channelImportance" to (channel?.importance ?: -1),
+            "activeNotifications" to active,
         )
     }
 
@@ -152,6 +158,10 @@ class MainActivity : AudioServiceActivity() {
         Thread {
             try {
                 val location = exportToMediaStore(source, fileName, mimeType)
+                // Lyrics and cover art live next to the private audio file.
+                // Publish them too so a file manager / other player sees the
+                // complete download, not just the bare track.
+                exportSidecars(source, fileName)
                 mainHandler.post { result.success(location) }
             } catch (error: Throwable) {
                 val message = error.message ?: error.toString()
@@ -162,6 +172,15 @@ class MainActivity : AudioServiceActivity() {
 
     private fun exportToMediaStore(source: File, fileName: String, mimeType: String): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Re-exporting a finished download on every launch must not leave
+            // "Song (1).mp3" copies behind.
+            runCatching {
+                contentResolver.delete(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    "${MediaStore.Audio.Media.RELATIVE_PATH}=? AND ${MediaStore.Audio.Media.DISPLAY_NAME}=?",
+                    arrayOf("Music/声屿/", fileName),
+                )
+            }
             val values = ContentValues().apply {
                 put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
@@ -192,6 +211,75 @@ class MainActivity : AudioServiceActivity() {
         }
         MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mimeType), null)
         return target.absolutePath
+    }
+
+    /** Publishes `.lrc` and `<name>.cover.*` next to the exported audio file. */
+    private fun exportSidecars(source: File, audioFileName: String) {
+        val sourceBase = File(
+            source.parentFile,
+            source.name.substringBeforeLast('.', source.name),
+        ).absolutePath
+        val targetBase = audioFileName.substringBeforeLast('.', audioFileName)
+        val items = mutableListOf<Pair<File, String>>()
+        File("$sourceBase.lrc").takeIf { it.isFile }?.let { items.add(it to "$targetBase.lrc") }
+        for (ext in listOf("jpg", "jpeg", "png", "webp", "gif")) {
+            File("$sourceBase.cover.$ext").takeIf { it.isFile }?.let {
+                items.add(it to "$targetBase.cover.$ext")
+            }
+        }
+        for ((file, name) in items) {
+            // A missing lyric/cover must never fail the audio export.
+            runCatching { exportSidecarToMediaStore(file, name) }
+        }
+    }
+
+    private fun exportSidecarToMediaStore(source: File, fileName: String) {
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+        val mime = when (extension) {
+            "lrc" -> "text/plain"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            else -> "image/jpeg"
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            runCatching {
+                contentResolver.delete(
+                    collection,
+                    "${MediaStore.MediaColumns.RELATIVE_PATH}=? AND ${MediaStore.MediaColumns.DISPLAY_NAME}=?",
+                    arrayOf("Music/声屿/", fileName),
+                )
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Music/声屿")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = contentResolver.insert(collection, values)
+                ?: throw IOException("无法在系统音乐目录中创建 $fileName")
+            try {
+                contentResolver.openOutputStream(uri)?.use { output ->
+                    source.inputStream().use { input -> input.copyTo(output, 64 * 1024) }
+                } ?: throw IOException("无法写入 $fileName")
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                contentResolver.update(uri, values, null, null)
+            } catch (error: Throwable) {
+                contentResolver.delete(uri, null, null)
+                throw error
+            }
+            return
+        }
+        @Suppress("DEPRECATION")
+        val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+        val targetDir = File(musicDir, "声屿").apply { mkdirs() }
+        val target = File(targetDir, fileName)
+        source.inputStream().use { input ->
+            target.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+        }
+        MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mime), null)
     }
 
     private class ImportCandidate(
@@ -305,6 +393,9 @@ class MainActivity : AudioServiceActivity() {
                 failed++
             }
         }
+        // Bring back lyrics/cover art saved next to the exported tracks. These
+        // are optional: a missing or unreadable sidecar never fails an import.
+        runCatching { importSidecars(targetDir) }
         return mapOf(
             "found" to candidates.size,
             "imported" to imported,
@@ -379,6 +470,96 @@ class MainActivity : AudioServiceActivity() {
         name.substringAfterLast('.', "").lowercase() in setOf(
             "mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "wma",
         )
+
+    private data class SidecarCandidate(
+        val name: String,
+        val size: Long,
+        val open: () -> java.io.InputStream,
+    )
+
+    private fun listExportedSidecars(): List<SidecarCandidate> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val out = mutableListOf<SidecarCandidate>()
+            val projection = arrayOf(
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.MediaColumns.SIZE,
+            )
+            val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+            runCatching {
+                contentResolver.query(
+                    MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                    projection,
+                    selection,
+                    arrayOf("Music/声屿/%"),
+                    null,
+                )?.use { cursor ->
+                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                    val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                    val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+                    val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                    while (cursor.moveToNext()) {
+                        val name = cursor.getString(nameColumn) ?: continue
+                        if (!isSidecarName(name)) continue
+                        val uri = ContentUris.withAppendedId(collection, cursor.getLong(idColumn))
+                        out.add(
+                            SidecarCandidate(name, cursor.getLong(sizeColumn)) {
+                                contentResolver.openInputStream(uri)
+                                    ?: throw IOException("无法读取 $name")
+                            },
+                        )
+                    }
+                }
+            }
+            return out
+        }
+        val folder = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+            "声屿",
+        )
+        if (!folder.isDirectory) return emptyList()
+        return folder.listFiles()
+            ?.filter { it.isFile && isSidecarName(it.name) }
+            ?.map { file ->
+                SidecarCandidate(file.name, file.length()) { file.inputStream() }
+            }
+            ?: emptyList()
+    }
+
+    private fun isSidecarName(name: String): Boolean =
+        name.endsWith(".lrc", ignoreCase = true) || name.contains(".cover.", ignoreCase = true)
+
+    private fun importSidecars(targetDir: File) {
+        for (sidecar in listExportedSidecars()) {
+            val name = sidecar.name.substringAfterLast('/').substringAfterLast('\\')
+            if (name.isBlank()) continue
+            val stem = when {
+                name.endsWith(".lrc", ignoreCase = true) -> name.dropLast(4)
+                else -> name.substringBeforeLast(".cover.", "")
+            }
+            if (stem.isBlank()) continue
+            // Only restore a sidecar when its audio file is present locally;
+            // otherwise it would be an orphan the library cannot use.
+            val hasAudio = targetDir.listFiles()?.any { file ->
+                file.isFile && isAudioName(file.name) &&
+                    file.name.substringBeforeLast('.', file.name) == stem
+            } ?: false
+            if (!hasAudio) continue
+
+            val target = File(targetDir, name)
+            if (target.isFile && target.length() == sidecar.size) continue
+            try {
+                val staging = File(targetDir, "$name.import")
+                staging.delete()
+                sidecar.open().use { input ->
+                    staging.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+                }
+                if (!staging.renameTo(target)) throw IOException("无法写入 $name")
+            } catch (_: Throwable) {
+                // Keep the existing sidecar if any; audio import already won.
+            }
+        }
+    }
 
     private fun startCore(call: MethodCall, result: MethodChannel.Result) {
         val dataDir = call.argument<String>("dataDir")

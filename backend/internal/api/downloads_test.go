@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,5 +140,154 @@ func TestRemoveDeletesPartialFile(t *testing.T) {
 	m.Remove("dl-1")
 	if _, err := os.Stat(partial); !os.IsNotExist(err) {
 		t.Fatalf("partial file still exists after remove: %v", err)
+	}
+}
+
+func TestSaveCoverWritesSidecar(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	cover := []byte("\x89PNG\r\n\x1a\ncover-bytes")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(cover)
+	}))
+	defer server.Close()
+
+	m := newTestDownloadManager(t, dir, store)
+	target := filepath.Join(dir, "Artist - Song.mp3")
+	path := m.saveCover(context.Background(), target, model.Song{
+		ID: "1", Source: "netease", Name: "Song", Cover: server.URL + "/cover.png",
+	})
+	want := filepath.Join(dir, "Artist - Song.cover.png")
+	if path != want {
+		t.Fatalf("cover path = %q, want %q", path, want)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != string(cover) {
+		t.Fatalf("cover content = %q, %v", got, err)
+	}
+}
+
+func TestSaveCoverIgnoresNonImage(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte("<html>not an image</html>"))
+	}))
+	defer server.Close()
+
+	m := newTestDownloadManager(t, dir, store)
+	target := filepath.Join(dir, "Artist - Song.mp3")
+	if path := m.saveCover(context.Background(), target, model.Song{
+		ID: "1", Source: "netease", Name: "Song", Cover: server.URL + "/cover.jpg",
+	}); path != "" {
+		t.Fatalf("non-image cover was saved at %q", path)
+	}
+}
+
+func TestLoadBackfillsSidecarsForDoneTasks(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	audio := filepath.Join(dir, "Artist - Song.mp3")
+	if err := os.WriteFile(audio, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write audio: %v", err)
+	}
+	base := strings.TrimSuffix(audio, filepath.Ext(audio))
+	if err := os.WriteFile(base+".lrc", []byte("[00:00.00]hi"), 0o644); err != nil {
+		t.Fatalf("write lrc: %v", err)
+	}
+	if err := os.WriteFile(base+".cover.jpg", []byte("cover"), 0o644); err != nil {
+		t.Fatalf("write cover: %v", err)
+	}
+
+	m := newTestDownloadManager(t, dir, store)
+	m.tasks["dl-1"] = &DownloadTask{
+		ID: "dl-1", Name: "Song", Source: "netease", Status: "done",
+		Path: audio, CreatedAt: time.Now(),
+		Song: model.Song{ID: "1", Source: "netease", Name: "Song"},
+	}
+	m.order = []string{"dl-1"}
+	m.dirty = true
+	m.flush()
+
+	reloaded := newTestDownloadManager(t, dir, store)
+	reloaded.load()
+	tasks := reloaded.List()
+	if len(tasks) != 1 {
+		t.Fatalf("loaded %d tasks, want 1", len(tasks))
+	}
+	if tasks[0].LyricPath != base+".lrc" {
+		t.Fatalf("lyric path = %q", tasks[0].LyricPath)
+	}
+	if tasks[0].CoverPath != base+".cover.jpg" {
+		t.Fatalf("cover path = %q", tasks[0].CoverPath)
+	}
+}
+
+func TestRepairAssetsFetchesMissingCover(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	cover := []byte("\xff\xd8\xffcover")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write(cover)
+	}))
+	defer server.Close()
+
+	audio := filepath.Join(dir, "Artist - Song.mp3")
+	if err := os.WriteFile(audio, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write audio: %v", err)
+	}
+	m := newTestDownloadManager(t, dir, store)
+	m.tasks["dl-1"] = &DownloadTask{
+		ID: "dl-1", Name: "Song", Source: "netease", Status: "done",
+		Path: audio, CreatedAt: time.Now(),
+		Song: model.Song{
+			ID: "1", Source: "netease", Name: "Song", Cover: server.URL + "/cover.jpg",
+		},
+	}
+	m.order = []string{"dl-1"}
+
+	if _, err := m.RepairAssets("dl-1"); err != nil {
+		t.Fatalf("repair: %v", err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if task, ok := m.get("dl-1"); ok && task.CoverPath != "" {
+			if got, err := os.ReadFile(task.CoverPath); err != nil || string(got) != string(cover) {
+				t.Fatalf("cover = %q, %v", got, err)
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("cover was not repaired in time")
+}
+
+func TestRepairAssetsRejectsUnfinishedTask(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	m := newTestDownloadManager(t, dir, store)
+	m.tasks["dl-1"] = &DownloadTask{
+		ID: "dl-1", Name: "Song", Status: "downloading", CreatedAt: time.Now(),
+	}
+	if _, err := m.RepairAssets("dl-1"); err == nil {
+		t.Fatal("expected unfinished task to be rejected")
 	}
 }

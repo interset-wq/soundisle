@@ -29,6 +29,75 @@ type localEntry struct {
 	size      int64
 	cover     []byte
 	coverMime string
+
+	// A downloaded track may not carry an embedded picture. The downloader
+	// writes a `<name>.cover.jpg/png/webp` next to it, so remember which file
+	// was used to avoid re-reading every cover on each scan.
+	coverPath    string
+	coverModTime time.Time
+	coverSize    int64
+}
+
+var sidecarCoverExts = []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+// sidecarCover describes an external cover image next to an audio file.
+type sidecarCover struct {
+	path    string
+	mime    string
+	modTime time.Time
+	size    int64
+}
+
+func findSidecarCover(audioPath string) sidecarCover {
+	base := strings.TrimSuffix(audioPath, filepath.Ext(audioPath))
+	candidates := make([]string, 0, len(sidecarCoverExts)*2)
+	for _, ext := range sidecarCoverExts {
+		candidates = append(candidates, base+".cover"+ext)
+	}
+	// Covers written by other tools commonly use `<song>.jpg`; accept those
+	// too, but only after our own naming pattern so we never override it.
+	for _, ext := range []string{".jpg", ".jpeg", ".png", ".webp"} {
+		candidates = append(candidates, base+ext)
+	}
+	for _, path := range candidates {
+		info, err := os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		return sidecarCover{
+			path: path, mime: imageMimeForExt(filepath.Ext(path)),
+			modTime: info.ModTime(), size: info.Size(),
+		}
+	}
+	return sidecarCover{}
+}
+
+func imageMimeForExt(ext string) string {
+	switch strings.ToLower(strings.TrimPrefix(ext, ".")) {
+	case "png":
+		return "image/png"
+	case "webp":
+		return "image/webp"
+	case "gif":
+		return "image/gif"
+	default:
+		return "image/jpeg"
+	}
+}
+
+// lyricSidecarPath returns the conventional `.lrc` path next to an audio file.
+func lyricSidecarPath(audioPath string) string {
+	return strings.TrimSuffix(audioPath, filepath.Ext(audioPath)) + ".lrc"
+}
+
+func readTextSidecar(path string) string {
+	raw, err := os.ReadFile(path)
+	if err != nil || len(raw) == 0 {
+		return ""
+	}
+	// Many Chinese LRC files are UTF-8 with a BOM; strip it so the Flutter
+	// parser does not choke on the first timestamp.
+	return strings.TrimPrefix(string(raw), "\ufeff")
 }
 
 type Library struct {
@@ -78,10 +147,19 @@ func (l *Library) entryFor(path string, info os.FileInfo) *localEntry {
 	l.mu.RLock()
 	existing := l.entries[path]
 	l.mu.RUnlock()
-	if existing != nil && existing.modTime.Equal(info.ModTime()) && existing.size == info.Size() {
+	side := findSidecarCover(path)
+	if existing != nil &&
+		existing.modTime.Equal(info.ModTime()) &&
+		existing.size == info.Size() &&
+		existing.coverPath == side.path &&
+		existing.coverModTime.Equal(side.modTime) &&
+		existing.coverSize == side.size {
 		return existing
 	}
-	entry := &localEntry{path: path, modTime: info.ModTime(), size: info.Size()}
+	entry := &localEntry{
+		path: path, modTime: info.ModTime(), size: info.Size(),
+		coverPath: side.path, coverModTime: side.modTime, coverSize: side.size,
+	}
 	song := model.Song{
 		ID:     "local:" + path,
 		Source: "local",
@@ -116,6 +194,14 @@ func (l *Library) entryFor(path string, info os.FileInfo) *localEntry {
 				entry.cover = pic.Data
 				entry.coverMime = pic.MIMEType
 			}
+		}
+	}
+	// Embedded artwork wins because it travels with the file when exported.
+	// Otherwise use the downloaded sidecar image.
+	if len(entry.cover) == 0 && side.path != "" {
+		if data, err := os.ReadFile(side.path); err == nil && len(data) > 0 {
+			entry.cover = data
+			entry.coverMime = side.mime
 		}
 	}
 	entry.song = song
@@ -205,7 +291,7 @@ func (l *Library) ServeCover(w http.ResponseWriter, r *http.Request) {
 	l.mu.RLock()
 	entry := l.entries[path]
 	l.mu.RUnlock()
-	if entry == nil {
+	if entry == nil || len(entry.cover) == 0 {
 		info, err := os.Stat(path)
 		if err != nil {
 			http.NotFound(w, r)
@@ -243,11 +329,41 @@ func (l *Library) Delete(path string) error {
 	if err := os.Remove(path); err != nil {
 		return err
 	}
-	_ = os.Remove(strings.TrimSuffix(path, filepath.Ext(path)) + ".lrc")
+	removeSidecars(path)
 	l.mu.Lock()
 	delete(l.entries, path)
 	l.mu.Unlock()
 	return nil
+}
+
+// Lyrics returns the sidecar `.lrc` for a local track, falling back to lyrics
+// embedded in the audio tags. Local files used to have no lyric endpoint at
+// all, so playing a downloaded song always showed "暂无歌词" even when the
+// downloader had saved the lyrics next to it.
+func (l *Library) Lyrics(path string) (string, error) {
+	if strings.TrimSpace(path) == "" || !l.within(path) {
+		return "", errors.New("本地歌词路径无效")
+	}
+	if lrc := readTextSidecar(lyricSidecarPath(path)); strings.TrimSpace(lrc) != "" {
+		return lrc, nil
+	}
+	if f, err := os.Open(path); err == nil {
+		defer f.Close()
+		if meta, err := tag.ReadFrom(f); err == nil {
+			if lrc := strings.TrimSpace(meta.Lyrics()); lrc != "" {
+				return lrc, nil
+			}
+		}
+	}
+	return "", errors.New("本地歌曲暂无歌词")
+}
+
+func removeSidecars(audioPath string) {
+	base := strings.TrimSuffix(audioPath, filepath.Ext(audioPath))
+	_ = os.Remove(base + ".lrc")
+	for _, ext := range sidecarCoverExts {
+		_ = os.Remove(base + ".cover" + ext)
+	}
 }
 
 // DeleteMany removes several files from the download directory. Paths outside

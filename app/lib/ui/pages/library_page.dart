@@ -927,7 +927,9 @@ class _DownloadTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.read<AppState>();
-    final cover = app.api.coverUrl(task.cover, source: task.source);
+    final cover = task.coverPath.isNotEmpty
+        ? app.api.localCoverUrl(task.coverPath)
+        : app.api.coverUrl(task.cover, source: task.source);
     final status = _statusText(task);
     final local = _localSong(app);
     final exported = app.exportedLocations[task.id];
@@ -1020,6 +1022,21 @@ class _DownloadTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (task.status == 'done' &&
+                  (task.lyricPath.isEmpty || task.coverPath.isEmpty))
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '补全歌词/封面',
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 19),
+                  onPressed: () async {
+                    try {
+                      await app.repairDownloadAssets(task.id);
+                      if (context.mounted) showAppSnack(context, '正在补全歌词与封面');
+                    } catch (error) {
+                      if (context.mounted) showAppSnack(context, '补全失败：$error');
+                    }
+                  },
+                ),
               if (task.status == 'failed')
                 IconButton(
                   visualDensity: VisualDensity.compact,
@@ -1065,7 +1082,11 @@ class _DownloadTile extends StatelessWidget {
       case 'downloading':
         return '${(task.progress * 100).toStringAsFixed(0)}%';
       case 'done':
-        return '已完成';
+        final assets = [
+          if (task.lyricPath.isNotEmpty) '歌词',
+          if (task.coverPath.isNotEmpty) '封面',
+        ];
+        return assets.isEmpty ? '已完成' : '已完成 · ${assets.join(' / ')}';
       case 'failed':
         return task.error.isEmpty ? '下载失败' : '下载失败：${task.error}';
       case 'canceled':

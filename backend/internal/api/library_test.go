@@ -1,6 +1,9 @@
 package api
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,5 +85,67 @@ func TestDeleteManyRejectsOutsidePathsOnly(t *testing.T) {
 	deleted, failed := lib.DeleteMany([]string{filepath.Join(dir, "..", "state.json"), inside})
 	if deleted != 1 || len(failed) != 1 {
 		t.Fatalf("deleted=%d failed=%v, want 1/1", deleted, failed)
+	}
+}
+
+func TestLibraryServesSidecarCoverAndLyrics(t *testing.T) {
+	lib, dir := newTestLibrary(t)
+	path := filepath.Join(dir, "Artist - Song.mp3")
+	if err := os.WriteFile(path, []byte("not real audio"), 0o644); err != nil {
+		t.Fatalf("write audio: %v", err)
+	}
+	base := strings.TrimSuffix(path, filepath.Ext(path))
+	coverBytes := []byte("\x89PNG\r\n\x1a\nfake-cover")
+	if err := os.WriteFile(base+".cover.png", coverBytes, 0o644); err != nil {
+		t.Fatalf("write cover: %v", err)
+	}
+	if err := os.WriteFile(base+".lrc", []byte("\ufeff[00:01.00]第一句\n"), 0o644); err != nil {
+		t.Fatalf("write lrc: %v", err)
+	}
+
+	songs, err := lib.Scan()
+	if err != nil || len(songs) != 1 {
+		t.Fatalf("scan = %v, %v", songs, err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/library/cover?path="+url.QueryEscape(path), nil)
+	rec := httptest.NewRecorder()
+	lib.ServeCover(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cover status = %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "image/png" {
+		t.Fatalf("cover content-type = %q, want image/png", got)
+	}
+	if string(rec.Body.Bytes()) != string(coverBytes) {
+		t.Fatalf("cover body mismatch")
+	}
+
+	lrc, err := lib.Lyrics(path)
+	if err != nil {
+		t.Fatalf("lyrics: %v", err)
+	}
+	if lrc != "[00:01.00]第一句\n" {
+		t.Fatalf("lyrics = %q", lrc)
+	}
+
+	if err := lib.Delete(path); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	for _, sidecar := range []string{base + ".cover.png", base + ".lrc"} {
+		if _, err := os.Stat(sidecar); !os.IsNotExist(err) {
+			t.Fatalf("sidecar %s still exists: %v", sidecar, err)
+		}
+	}
+}
+
+func TestLibraryRejectsLyricsOutsideDownloadDir(t *testing.T) {
+	lib, _ := newTestLibrary(t)
+	outside := filepath.Join(t.TempDir(), "secret.mp3")
+	if err := os.WriteFile(outside, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := lib.Lyrics(outside); err == nil {
+		t.Fatal("expected outside path to be rejected")
 	}
 }

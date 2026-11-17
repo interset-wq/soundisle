@@ -342,6 +342,12 @@ class ApiClient {
 
   Future<void> repairDownload(String id) => _request('POST', '/api/downloads/$id/repair');
 
+  /// Queues asset repair for every finished download missing lyrics/cover.
+  Future<int> repairMissingDownloads() async {
+    final json = await _request('POST', '/api/downloads/repair') as Map<String, dynamic>;
+    return (json['queued'] as num?)?.toInt() ?? 0;
+  }
+
   Future<Map<String, String>> cookies() async {
     final json = await _request('GET', '/api/cookies') as Map<String, dynamic>;
     final raw = json['cookies'];

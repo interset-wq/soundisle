@@ -8,10 +8,18 @@ Song localSong({
   String artist = '',
   String album = '',
 }) {
-  return Song(id: id, name: name, artist: artist, album: album, source: 'local');
+  return Song(
+    id: id,
+    name: name,
+    artist: artist,
+    album: album,
+    source: 'local',
+  );
 }
 
 void main() {
+  filterTests();
+
   test('artist mode merges songs and sorts groups by name', () {
     final groups = groupLocalSongs([
       localSong(id: '1', name: 'A', artist: '周杰伦'),
@@ -49,7 +57,52 @@ void main() {
   });
 
   test('flat mode returns no groups', () {
-    expect(groupLocalSongs([localSong(id: '1', name: 'A')], LocalGroupMode.none), isEmpty);
+    expect(
+      groupLocalSongs([localSong(id: '1', name: 'A')], LocalGroupMode.none),
+      isEmpty,
+    );
     expect(groupLocalSongs(const [], LocalGroupMode.artist), isEmpty);
+  });
+}
+
+final sampleSongs = [
+  Song(
+    id: '1',
+    name: '晴天',
+    artist: '周杰伦',
+    album: '叶惠美',
+    source: 'local',
+    extra: const {'fileName': '周杰伦 - 晴天.mp3'},
+  ),
+  Song(
+    id: '2',
+    name: 'Lemon',
+    artist: '米津玄師',
+    album: 'STRAY SHEEP',
+    source: 'local',
+  ),
+  Song(id: '3', name: '夜曲', artist: '周杰伦', album: '十一月的萧邦', source: 'local'),
+];
+
+void filterTests() {
+  test('empty query returns the original list', () {
+    expect(filterLocalSongs(sampleSongs, '   '), same(sampleSongs));
+  });
+
+  test('matches title, artist and album case-insensitively', () {
+    expect(filterLocalSongs(sampleSongs, '晴天').map((e) => e.id), ['1']);
+    expect(filterLocalSongs(sampleSongs, '周杰伦').map((e) => e.id), ['1', '3']);
+    expect(filterLocalSongs(sampleSongs, 'stray').map((e) => e.id), ['2']);
+  });
+
+  test('every whitespace-separated term must match', () {
+    expect(filterLocalSongs(sampleSongs, '周杰伦 夜').map((e) => e.id), ['3']);
+    expect(filterLocalSongs(sampleSongs, '周杰伦 lemon'), isEmpty);
+  });
+
+  test('falls back to the exported file name', () {
+    expect(filterLocalSongs(sampleSongs, '周杰伦 - 晴天.mp3').map((e) => e.id), [
+      '1',
+    ]);
   });
 }

@@ -410,6 +410,7 @@ class DownloadTask {
     this.coverPath = '',
     this.total = 0,
     this.received = 0,
+    this.repairing = false,
   });
 
   final String id;
@@ -425,6 +426,9 @@ class DownloadTask {
   final String coverPath;
   final int total;
   final int received;
+
+  /// True while the backend is fetching missing lyrics/cover for this task.
+  final bool repairing;
 
   double get progress => total > 0 ? (received / total).clamp(0.0, 1.0) : 0;
 
@@ -442,6 +446,7 @@ class DownloadTask {
         coverPath: '${json['coverPath'] ?? ''}',
         total: (json['total'] as num?)?.toInt() ?? 0,
         received: (json['received'] as num?)?.toInt() ?? 0,
+        repairing: json['repairing'] == true,
       );
 }
 

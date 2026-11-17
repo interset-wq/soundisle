@@ -42,7 +42,7 @@ type DownloadTask struct {
 	// retried without re-searching for the track.
 	Song      model.Song `json:"song"`
 	canceled  bool
-	repairing bool
+	Repairing bool `json:"repairing,omitempty"`
 }
 
 type DownloadManager struct {
@@ -59,6 +59,11 @@ type DownloadManager struct {
 	// startup; interrupted tasks are surfaced as failed with a clear reason.
 	persistPath string
 	dirty       bool
+
+	// Repairing old downloads can trigger several platform searches per track.
+	// A small gate keeps a "repair everything" tap from flooding the network.
+	repairOnce sync.Once
+	repairSem  chan struct{}
 }
 
 const downloadHistoryLimit = 300
@@ -136,6 +141,9 @@ func (m *DownloadManager) load() {
 			}
 		}
 		task.canceled = false
+		// A repair goroutine cannot survive a restart; clear the flag so the
+		// UI does not show an endless spinner.
+		task.Repairing = false
 		loaded = append(loaded, &task)
 	}
 	if len(loaded) > downloadHistoryLimit {
@@ -325,21 +333,24 @@ func (m *DownloadManager) RepairAssets(id string) (DownloadTask, error) {
 		m.mu.Unlock()
 		return DownloadTask{}, errors.New("下载文件不存在，请重新下载")
 	}
-	if task.repairing {
+	if task.Repairing {
 		m.mu.Unlock()
 		return DownloadTask{}, errors.New("正在补全，请稍候")
 	}
-	task.repairing = true
+	task.Repairing = true
 	target := task.Path
 	song := task.Song
 	snapshot := *task
 	m.mu.Unlock()
 
 	go func() {
+		slot := m.repairSlot()
+		slot <- struct{}{}
 		defer func() {
+			<-slot
 			m.mu.Lock()
 			if current, ok := m.tasks[id]; ok {
-				current.repairing = false
+				current.Repairing = false
 			}
 			m.mu.Unlock()
 		}()
@@ -382,6 +393,39 @@ func (m *DownloadManager) RepairAssets(id string) (DownloadTask, error) {
 		})
 	}()
 	return snapshot, nil
+}
+
+// repairSlot lazily creates the semaphore so test managers that are built by
+// hand get one too.
+func (m *DownloadManager) repairSlot() chan struct{} {
+	m.repairOnce.Do(func() { m.repairSem = make(chan struct{}, 2) })
+	return m.repairSem
+}
+
+// RepairMissingAssets queues asset repair for every finished download that is
+// still missing lyrics or cover art. Tasks without a local file are skipped;
+// they need a real re-download rather than a metadata fix.
+func (m *DownloadManager) RepairMissingAssets() int {
+	m.mu.RLock()
+	ids := make([]string, 0, len(m.order))
+	for _, id := range m.order {
+		task, ok := m.tasks[id]
+		if !ok || task.Status != "done" || task.Path == "" || task.Repairing {
+			continue
+		}
+		if task.LyricPath == "" || task.CoverPath == "" {
+			ids = append(ids, id)
+		}
+	}
+	m.mu.RUnlock()
+
+	queued := 0
+	for _, id := range ids {
+		if _, err := m.RepairAssets(id); err == nil {
+			queued++
+		}
+	}
+	return queued
 }
 
 func (m *DownloadManager) worker() {

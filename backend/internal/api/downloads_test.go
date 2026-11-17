@@ -291,3 +291,64 @@ func TestRepairAssetsRejectsUnfinishedTask(t *testing.T) {
 		t.Fatal("expected unfinished task to be rejected")
 	}
 }
+
+func TestRepairMissingAssetsQueuesOldDownloads(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	cover := []byte("\xff\xd8\xffbulk-cover")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write(cover)
+	}))
+	defer server.Close()
+
+	m := newTestDownloadManager(t, dir, store)
+	now := time.Now()
+	for _, name := range []string{"One", "Two"} {
+		audio := filepath.Join(dir, "Artist - "+name+".mp3")
+		if err := os.WriteFile(audio, []byte("audio-"+name), 0o644); err != nil {
+			t.Fatalf("write audio: %v", err)
+		}
+		id := "dl-" + strings.ToLower(name)
+		m.tasks[id] = &DownloadTask{
+			ID: id, Name: name, Source: "netease", Status: "done",
+			Path: audio, CreatedAt: now,
+			Song: model.Song{
+				ID: name, Source: "netease", Name: name, Cover: server.URL + "/cover.jpg",
+			},
+		}
+		m.order = append(m.order, id)
+	}
+	// Finished but the file is gone: must be skipped, not queued.
+	m.tasks["dl-gone"] = &DownloadTask{
+		ID: "dl-gone", Name: "Gone", Status: "done",
+		Path: filepath.Join(dir, "missing.mp3"), CreatedAt: now,
+	}
+	m.order = append(m.order, "dl-gone")
+
+	if queued := m.RepairMissingAssets(); queued != 2 {
+		t.Fatalf("queued %d tasks, want 2", queued)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		done := 0
+		m.mu.RLock()
+		for _, id := range []string{"dl-one", "dl-two"} {
+			if task := m.tasks[id]; task != nil && task.CoverPath != "" {
+				if _, err := os.Stat(task.CoverPath); err == nil {
+					done++
+				}
+			}
+		}
+		m.mu.RUnlock()
+		if done == 2 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("bulk repair did not fetch both covers in time")
+}

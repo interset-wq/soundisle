@@ -172,11 +172,17 @@ class MainActivity : AudioServiceActivity() {
 
     private fun exportToMediaStore(source: File, fileName: String, mimeType: String): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Re-exporting a finished download on every launch must not leave
-            // "Song (1).mp3" copies behind.
+            val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            // Every app start re-exports finished downloads. When the published
+            // copy already has the same size, leave it alone instead of deleting
+            // and rewriting the whole file (and triggering a media rescan).
+            if (mediaStoreEntryMatches(collection, fileName, source.length())) {
+                return "Music/声屿/$fileName"
+            }
+            // Re-exporting a changed file must not leave "Song (1).mp3" behind.
             runCatching {
                 contentResolver.delete(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    collection,
                     "${MediaStore.Audio.Media.RELATIVE_PATH}=? AND ${MediaStore.Audio.Media.DISPLAY_NAME}=?",
                     arrayOf("Music/声屿/", fileName),
                 )
@@ -187,7 +193,7 @@ class MainActivity : AudioServiceActivity() {
                 put(MediaStore.Audio.Media.RELATIVE_PATH, "Music/声屿")
                 put(MediaStore.Audio.Media.IS_PENDING, 1)
             }
-            val uri = contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+            val uri = contentResolver.insert(collection, values)
                 ?: throw IOException("无法在系统音乐库中创建文件")
             try {
                 contentResolver.openOutputStream(uri)?.use { output ->
@@ -206,12 +212,41 @@ class MainActivity : AudioServiceActivity() {
         val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
         val targetDir = File(musicDir, "声屿").apply { mkdirs() }
         val target = File(targetDir, fileName)
+        if (isUpToDateCopy(source, target)) return target.absolutePath
         source.inputStream().use { input ->
             target.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
         }
         MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mimeType), null)
         return target.absolutePath
     }
+
+    /** Checks a MediaStore collection for an entry with the same name and size. */
+    private fun mediaStoreEntryMatches(collection: Uri, fileName: String, size: Long): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val projection = arrayOf(MediaStore.MediaColumns.SIZE)
+        val selection =
+            "${MediaStore.MediaColumns.RELATIVE_PATH}=? AND ${MediaStore.MediaColumns.DISPLAY_NAME}=?"
+        return runCatching {
+            contentResolver.query(
+                collection,
+                projection,
+                selection,
+                arrayOf("Music/声屿/", fileName),
+                null,
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (cursor.getLong(0) == size) return@use true
+                }
+                false
+            } ?: false
+        }.getOrDefault(false)
+    }
+
+    /** True when [target] already holds an unchanged copy of [source]. */
+    private fun isUpToDateCopy(source: File, target: File): Boolean =
+        target.isFile &&
+            target.length() == source.length() &&
+            target.lastModified() >= source.lastModified()
 
     /** Publishes `.lrc` and `<name>.cover.*` next to the exported audio file. */
     private fun exportSidecars(source: File, audioFileName: String) {
@@ -244,6 +279,9 @@ class MainActivity : AudioServiceActivity() {
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            // Sidecars rarely change after a download finishes; skip the
+            // rewrite when the published copy already matches.
+            if (mediaStoreEntryMatches(collection, fileName, source.length())) return
             runCatching {
                 contentResolver.delete(
                     collection,
@@ -276,6 +314,7 @@ class MainActivity : AudioServiceActivity() {
         val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
         val targetDir = File(musicDir, "声屿").apply { mkdirs() }
         val target = File(targetDir, fileName)
+        if (isUpToDateCopy(source, target)) return
         source.inputStream().use { input ->
             target.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
         }
@@ -530,6 +569,15 @@ class MainActivity : AudioServiceActivity() {
         name.endsWith(".lrc", ignoreCase = true) || name.contains(".cover.", ignoreCase = true)
 
     private fun importSidecars(targetDir: File) {
+        // Build the audio stem set once; checking every sidecar against every
+        // audio file would turn a 1000-file library into a quadratic scan.
+        val audioStems = targetDir.listFiles()
+            ?.asSequence()
+            ?.filter { it.isFile && isAudioName(it.name) }
+            ?.map { it.name.substringBeforeLast('.', it.name) }
+            ?.toSet()
+            ?: emptySet()
+        if (audioStems.isEmpty()) return
         for (sidecar in listExportedSidecars()) {
             val name = sidecar.name.substringAfterLast('/').substringAfterLast('\\')
             if (name.isBlank()) continue
@@ -540,11 +588,7 @@ class MainActivity : AudioServiceActivity() {
             if (stem.isBlank()) continue
             // Only restore a sidecar when its audio file is present locally;
             // otherwise it would be an orphan the library cannot use.
-            val hasAudio = targetDir.listFiles()?.any { file ->
-                file.isFile && isAudioName(file.name) &&
-                    file.name.substringBeforeLast('.', file.name) == stem
-            } ?: false
-            if (!hasAudio) continue
+            if (stem !in audioStems) continue
 
             val target = File(targetDir, name)
             if (target.isFile && target.length() == sidecar.size) continue

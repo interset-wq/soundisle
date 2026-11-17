@@ -91,8 +91,36 @@ class _LocalTabState extends State<_LocalTab> {
   LocalGroupMode _groupMode = LocalGroupMode.none;
   final Set<String> _expandedGroups = {};
 
+  final TextEditingController _searchController = TextEditingController();
+  bool _searching = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   List<Song> _selectedSongs(List<Song> songs) =>
       songs.where((song) => _selected.contains(song.key)).toList();
+
+  void _toggleSearch() {
+    setState(() {
+      _searching = !_searching;
+      if (!_searching) {
+        _query = '';
+        _searchController.clear();
+      }
+    });
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searching = false;
+      _query = '';
+      _searchController.clear();
+    });
+  }
 
   void _setGroupMode(LocalGroupMode mode) {
     setState(() {
@@ -121,6 +149,11 @@ class _LocalTabState extends State<_LocalTab> {
   void _enterSelection([Song? song]) {
     setState(() {
       _selecting = true;
+      // Selection works on the complete library; leaving the search filter
+      // active would make "全选" mean something different from what is shown.
+      _searching = false;
+      _query = '';
+      _searchController.clear();
       if (song != null) _selected.add(song.key);
     });
   }
@@ -192,7 +225,8 @@ class _LocalTabState extends State<_LocalTab> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final player = context.watch<PlayerController>();
-    final songs = app.localSongs;
+    final allSongs = app.localSongs;
+    final songs = filterLocalSongs(allSongs, _query);
     final picked = _selectedSongs(songs);
     final allSelected = songs.isNotEmpty && picked.length == songs.length;
     return RefreshIndicator(
@@ -202,10 +236,11 @@ class _LocalTabState extends State<_LocalTab> {
           if (_selecting)
             _selectionToolbar(songs, picked, allSelected)
           else
-            _listToolbar(app, songs),
-          if (songs.isNotEmpty && !_selecting) _modeChips(),
+            _listToolbar(app, allSongs, songs),
+          if (_searching) _searchField(),
+          if (allSongs.isNotEmpty && !_selecting) _modeChips(),
           Expanded(
-            child: songs.isEmpty
+            child: allSongs.isEmpty
                 ? EmptyState(
                     icon: Icons.folder_open_rounded,
                     title: '还没有本地音乐',
@@ -226,12 +261,57 @@ class _LocalTabState extends State<_LocalTab> {
                       ],
                     ),
                   )
-                : _groupMode == LocalGroupMode.none
-                    ? _songList(songs, player)
-                    : _groupedList(songs, player),
+                : songs.isEmpty
+                    ? EmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: '没有匹配的歌曲',
+                        subtitle: '换个关键词，或清除搜索查看全部 ${allSongs.length} 首',
+                        action: OutlinedButton(onPressed: _clearSearch, child: const Text('清除搜索')),
+                      )
+                    : _groupMode == LocalGroupMode.none
+                        ? _songList(songs, player)
+                        : _groupedList(songs, player),
           ),
           if (_selecting) _batchBar(app, player, picked),
         ],
+      ),
+    );
+  }
+
+  Widget _searchField() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        onChanged: (value) => setState(() => _query = value),
+        style: const TextStyle(fontSize: 13),
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: '搜索歌名、歌手、专辑',
+          hintStyle: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.32)),
+          prefixIcon: Icon(Icons.search_rounded, size: 18, color: Colors.white.withValues(alpha: 0.38)),
+          prefixIconConstraints: const BoxConstraints(minWidth: 38),
+          suffixIcon: _query.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: '清除',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.close_rounded, size: 17, color: Colors.white.withValues(alpha: 0.45)),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _query = '');
+                  },
+                ),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.05),
+          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
       ),
     );
   }
@@ -363,14 +443,24 @@ class _LocalTabState extends State<_LocalTab> {
     return Padding(padding: const EdgeInsets.only(left: 10), child: tile);
   }
 
-  Widget _listToolbar(AppState app, List<Song> songs) {
+  Widget _listToolbar(AppState app, List<Song> allSongs, List<Song> visible) {
+    final searching = _query.trim().isNotEmpty;
     return _ListToolbar(
       icon: Icons.folder_rounded,
-      title: '已下载到本地',
-      subtitle: StorageBridge.supported
-          ? '${songs.length} 首歌曲 · 副本在系统 Music/声屿'
-          : (app.settings.downloadDir.isEmpty ? '${songs.length} 首歌曲' : app.settings.downloadDir),
+      title: searching ? '找到 ${visible.length} 首' : '已下载到本地',
+      subtitle: searching
+          ? '共 ${allSongs.length} 首本地歌曲'
+          : StorageBridge.supported
+              ? '${allSongs.length} 首歌曲 · 副本在系统 Music/声屿'
+              : (app.settings.downloadDir.isEmpty ? '${allSongs.length} 首歌曲' : app.settings.downloadDir),
       actions: [
+        if (allSongs.isNotEmpty)
+          IconButton(
+            tooltip: _searching ? '关闭搜索' : '搜索本地音乐',
+            visualDensity: VisualDensity.compact,
+            onPressed: _toggleSearch,
+            icon: Icon(_searching ? Icons.search_off_rounded : Icons.search_rounded, size: 20),
+          ),
         if (StorageBridge.supported)
           IconButton(
             tooltip: '从 Music/声屿 导入',
@@ -397,17 +487,17 @@ class _LocalTabState extends State<_LocalTab> {
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.refresh_rounded, size: 20),
         ),
-        if (songs.isNotEmpty)
+        if (allSongs.isNotEmpty && !_searching)
           IconButton(
             tooltip: '批量管理',
             visualDensity: VisualDensity.compact,
             onPressed: () => _enterSelection(),
             icon: const Icon(Icons.checklist_rounded, size: 20),
           ),
-        if (songs.isNotEmpty)
+        if (visible.isNotEmpty)
           IconButton(
             tooltip: '播放全部',
-            onPressed: () => playSongList(context, songs, 0),
+            onPressed: () => playSongList(context, visible, 0),
             icon: const Icon(Icons.play_circle_fill_rounded, size: 28, color: AppColors.accent),
           ),
       ],
@@ -878,6 +968,9 @@ class _DownloadsTab extends StatelessWidget {
     final app = context.watch<AppState>();
     final tasks = app.downloads;
     final active = tasks.where((e) => e.status == 'downloading' || e.status == 'waiting').length;
+    final missingAssets = tasks
+        .where((e) => e.status == 'done' && !e.repairing && (e.lyricPath.isEmpty || e.coverPath.isEmpty))
+        .length;
     return RefreshIndicator(
       onRefresh: app.refreshDownloads,
       child: Column(
@@ -887,11 +980,31 @@ class _DownloadsTab extends StatelessWidget {
             title: active > 0 ? '正在下载 $active 个任务' : '下载任务',
             subtitle: StorageBridge.supported ? '完成后自动保存到系统 Music/声屿' : app.settings.downloadDir,
             actions: [
+              if (missingAssets > 0)
+                IconButton(
+                  tooltip: '补全全部歌词/封面',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 19),
+                  onPressed: () async {
+                    try {
+                      final queued = await app.repairMissingDownloadAssets();
+                      if (context.mounted) {
+                        showAppSnack(
+                          context,
+                          queued == 0 ? '没有需要补全的任务' : '正在补全 $queued 个任务的歌词与封面',
+                        );
+                      }
+                    } catch (error) {
+                      if (context.mounted) showAppSnack(context, '补全失败：$error');
+                    }
+                  },
+                ),
               if (tasks.isNotEmpty)
                 TextButton(
                   onPressed: () async {
-                    for (final task in tasks.where((e) => e.status == 'done' || e.status == 'failed' || e.status == 'canceled')) {
-                      await app.removeDownload(task.id);
+                    final removed = await app.clearFinishedDownloads();
+                    if (context.mounted && removed > 0) {
+                      showAppSnack(context, '已清除 $removed 条下载记录');
                     }
                   },
                   child: const Text('清除记录', style: TextStyle(fontSize: 11.5)),
@@ -1022,7 +1135,16 @@ class _DownloadTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (task.status == 'done' &&
+              if (task.repairing)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (task.status == 'done' &&
                   (task.lyricPath.isEmpty || task.coverPath.isEmpty))
                 IconButton(
                   visualDensity: VisualDensity.compact,
@@ -1076,6 +1198,7 @@ class _DownloadTile extends StatelessWidget {
   }
 
   String _statusText(DownloadTask task) {
+    if (task.repairing) return '正在补全歌词与封面';
     switch (task.status) {
       case 'waiting':
         return '等待下载';

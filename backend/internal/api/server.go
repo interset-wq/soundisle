@@ -81,6 +81,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/downloads/{id}", s.handleDeleteDownload)
 	mux.HandleFunc("POST /api/downloads/{id}/retry", s.handleRetryDownload)
 	mux.HandleFunc("POST /api/downloads/{id}/repair", s.handleRepairDownload)
+	mux.HandleFunc("POST /api/downloads/repair", s.handleRepairDownloads)
 	mux.HandleFunc("GET /api/collections", s.handleCollections)
 	mux.HandleFunc("POST /api/collections", s.handleCollections)
 	mux.HandleFunc("GET /api/collections/{id}", s.handleCollection)
@@ -515,6 +516,11 @@ func (s *Service) handleRepairDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, task)
+}
+
+// handleRepairDownloads repairs every finished task that still lacks a sidecar.
+func (s *Service) handleRepairDownloads(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]int{"queued": s.Downloads.RepairMissingAssets()})
 }
 
 func (s *Service) handleCollections(w http.ResponseWriter, r *http.Request) {

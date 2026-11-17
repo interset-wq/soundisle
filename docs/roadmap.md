@@ -1,7 +1,7 @@
-# 第三版规划（1.0.2 → 1.0.3）
+# 第三版规划（1.0.2 → 1.0.4）
 
-> 状态：**1.0.3 开发中**；上一预发布为 `v1.0.2-android.18`（稳定 release 签名）。
-> 更早版本为 `v1.0.1-android.*`（1.0.1，debug 签名）。
+> 状态：**1.0.4 开发中**；上一预发布为 `v1.0.3-android.22`（稳定 release 签名）。
+> 更早版本为 `v1.0.2-android.18`、`v1.0.1-android.*`（1.0.1，debug 签名）。
 
 ## 0. 平台节奏
 
@@ -44,6 +44,9 @@ Android 是当前唯一验收平台。通知、下载、媒体库、后台播放
 | 新增-12 | 本地音乐按歌手/专辑分组，分组可展开与整组播放               | `local_grouping.dart`、`library_page.dart`                   |
 | BUG-105 | Release 资源压缩误删通知小图标，媒体通知完全不显示          | `app/android/app/src/main/res/raw/keep.xml`、`AndroidManifest.xml` |
 | 新增-13 | 下载自动保存 `.lrc` 与 `.cover.*`；本地播放可读侧车文件；导出/导入一并处理 | `downloads.go`、`library.go`、`MainActivity.kt` |
+| 新增-14 | 旧下载缺歌词/封面可单曲补全，也可一键补全全部缺失资源        | `downloads.go`、`library_page.dart`、`api_client.dart`   |
+| 新增-15 | 本地音乐支持关键词搜索，多个关键词按“且”匹配                | `local_grouping.dart`、`library_page.dart`               |
+| 新增-16 | 每次启动不再重写 `Music/声屿` 中未变化的音频与侧车文件       | `MainActivity.kt`                                        |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。
@@ -59,10 +62,18 @@ Android 是当前唯一验收平台。通知、下载、媒体库、后台播放
 
 ### 1.0.3
 
-1. 版本号 `1.0.3+4`；计划推 tag `v1.0.3` 触发 CI；
-2. 已修复 release 资源压缩误删 `drawable/ic_stat_soundisle` 的问题，压缩日志应显示 `reachable from keep xml file`；
+1. 版本号 `1.0.3+4`；推 tag `v1.0.3` 后 CI 产出预发布 `v1.0.3-android.22`；
+2. 已修复 release 资源压缩误删 `drawable/ic_stat_soundisle` 的问题，压缩日志显示 `reachable from keep xml file`；
 3. 下载任务完成后自动写 `<歌曲>.lrc` 与 `<歌曲>.cover.jpg/png/webp`，Android 导出/导入会同步处理侧车；
 4. 关于页「播放通知」显示在途通知数量，并支持手动刷新。
+
+### 1.0.4
+
+1. 版本号 `1.0.4+5`，可覆盖安装 1.0.3；
+2. 本地音乐支持按歌名/歌手/专辑/文件名搜索，多个关键词同时生效；
+3. 下载页新增「补全全部歌词/封面」，旧下载无需逐首点魔法棒；
+4. 补全中的任务显示进度转圈，重启后不会残留“补全中”状态；
+5. 已发布的音频/歌词/封面在大小一致时不再重复删除重写，避免每次启动触发媒体库重扫。
 
 ## 4. 下一批候选（Android 收口后再启动跨平台）
 

@@ -309,6 +309,21 @@ class AppState extends ChangeNotifier {
     await refreshDownloads();
   }
 
+  /// Removes every finished/canceled/failed task with a single refresh instead
+  /// of issuing one list request per row.
+  Future<int> clearFinishedDownloads() async {
+    final ids = downloads
+        .where((task) => task.status == 'done' || task.status == 'failed' || task.status == 'canceled')
+        .map((task) => task.id)
+        .toList();
+    if (ids.isEmpty) return 0;
+    for (final id in ids) {
+      await api.removeDownload(id);
+    }
+    await refreshDownloads();
+    return ids.length;
+  }
+
   Future<void> retryDownload(String id) async {
     await api.retryDownload(id);
     await refreshDownloads();
@@ -317,6 +332,14 @@ class AppState extends ChangeNotifier {
   Future<void> repairDownloadAssets(String id) async {
     await api.repairDownload(id);
     await refreshDownloads();
+  }
+
+  /// Repairs every finished download that still lacks lyrics or cover art.
+  /// Returns how many tasks were queued.
+  Future<int> repairMissingDownloadAssets() async {
+    final queued = await api.repairMissingDownloads();
+    await refreshDownloads();
+    return queued;
   }
 
   @override

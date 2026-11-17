@@ -17,6 +17,30 @@ class SongGroup {
   final List<Song> songs = [];
 }
 
+/// Filters local songs by a free-text query. Every whitespace-separated term
+/// must occur in the title, artist, album or file name, so "jay 晴天" narrows
+/// down instead of requiring an exact substring. Matching ignores case.
+List<Song> filterLocalSongs(List<Song> songs, String query) {
+  final terms = query
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((term) => term.isNotEmpty)
+      .toList();
+  if (terms.isEmpty) return songs;
+  bool matches(Song song) {
+    final haystack = [
+      song.name,
+      song.artist,
+      song.album,
+      song.extra['fileName'] ?? '',
+    ].join('\u0000').toLowerCase();
+    return terms.every(haystack.contains);
+  }
+
+  return songs.where(matches).toList();
+}
+
 /// Groups songs for the local library tabs. Order inside a group is preserved
 /// (the backend already sorts by artist and title); groups are sorted by name.
 List<SongGroup> groupLocalSongs(List<Song> songs, LocalGroupMode mode) {

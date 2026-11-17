@@ -54,6 +54,30 @@ void main() {
     expect(response.songs.first.name, 'A');
   });
 
+  test('download polling is active only while a task runs', () {
+    final app = AppState(
+      ApiClient(baseUrl: 'http://127.0.0.1:1', token: 'test'),
+    );
+    app.downloads = [
+      const DownloadTask(id: '1', name: 'done', status: 'done'),
+      const DownloadTask(id: '2', name: 'failed', status: 'failed'),
+    ];
+    expect(app.hasActiveDownloads, isFalse);
+    app.downloads = [
+      const DownloadTask(id: '3', name: 'waiting', status: 'waiting'),
+    ];
+    expect(app.hasActiveDownloads, isTrue);
+    app.downloads = [
+      const DownloadTask(
+        id: '4',
+        name: 'repairing',
+        status: 'done',
+        repairing: true,
+      ),
+    ];
+    expect(app.hasActiveDownloads, isTrue);
+  });
+
   test('download message explains skipped songs', () {
     final app = AppState(
       ApiClient(baseUrl: 'http://127.0.0.1:1', token: 'test'),

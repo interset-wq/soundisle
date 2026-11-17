@@ -24,6 +24,7 @@ class AppState extends ChangeNotifier {
   bool scanning = false;
   String? lastError;
   Timer? _downloadTimer;
+  bool _pollingDownloads = false;
 
   /// Whether tapping a song opens the full now-playing page right away.
   /// Purely a UI preference, so it lives in shared_preferences instead of the
@@ -130,7 +131,6 @@ class AppState extends ChangeNotifier {
     if (settings.defaultSearch.isNotEmpty) defaultSources = settings.defaultSearch;
     ready = true;
     notifyListeners();
-    _downloadTimer ??= Timer.periodic(const Duration(seconds: 2), (_) => _pollDownloads());
     unawaited(refreshDownloads());
   }
 
@@ -188,8 +188,31 @@ class AppState extends ChangeNotifier {
 
   Future<void> refreshDownloads() async {
     downloads = await api.downloads();
+    _syncDownloadPolling();
     notifyListeners();
     unawaited(_exportFinishedDownloads());
+  }
+
+  /// True while a download or asset repair is still running.
+  bool get hasActiveDownloads => downloads.any(
+    (task) =>
+        task.status == 'waiting' ||
+        task.status == 'downloading' ||
+        task.repairing,
+  );
+
+  /// Polls only while something is running. A permanent 2s timer kept waking
+  /// the CPU and hitting the local API even when the download list was idle.
+  void _syncDownloadPolling() {
+    if (hasActiveDownloads) {
+      _downloadTimer ??= Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => _pollDownloads(),
+      );
+    } else {
+      _downloadTimer?.cancel();
+      _downloadTimer = null;
+    }
   }
 
   /// Copies finished downloads out of the app-private directory so the files
@@ -222,12 +245,20 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _pollDownloads() async {
+    if (_pollingDownloads) return;
+    _pollingDownloads = true;
     try {
       final before = {for (final task in downloads) task.id: task.status};
       await refreshDownloads();
-      final finished = downloads.any((task) => task.status == 'done' && before[task.id] != 'done');
+      final finished = downloads.any(
+        (task) => task.status == 'done' && before[task.id] != 'done',
+      );
       if (finished) await refreshLibrary();
-    } catch (_) {}
+    } catch (_) {
+      // A transient local API error must not kill the polling loop.
+    } finally {
+      _pollingDownloads = false;
+    }
   }
 
   bool isFavorite(Song song) => favoriteKeys.contains(song.key);

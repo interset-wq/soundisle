@@ -1,7 +1,7 @@
-# 第三版规划（1.0.2 → 1.0.5）
+# 第三版规划（1.0.2 → 1.0.6）
 
-> 状态：**1.0.5 已发布**（`v1.0.5-android.26`）；上一预发布为 `v1.0.4-android.24`（稳定 release 签名）。
-> 更早版本为 `v1.0.3-android.22`、`v1.0.2-android.18`、`v1.0.1-android.*`（1.0.1，debug 签名）。
+> 状态：**1.0.6 开发中**；上一预发布为 `v1.0.5-android.26`（稳定 release 签名）。
+> 更早版本为 `v1.0.4-android.24`、`v1.0.3-android.22`、`v1.0.2-android.18`、`v1.0.1-android.*`（1.0.1，debug 签名）。
 
 ## 0. 平台节奏
 
@@ -48,6 +48,7 @@ Android 是当前唯一验收平台。通知、下载、媒体库、后台播放
 | 新增-15 | 本地音乐支持关键词搜索，多个关键词按“且”匹配                | `local_grouping.dart`、`library_page.dart`               |
 | 新增-16 | 每次启动不再重写 `Music/声屿` 中未变化的音频与侧车文件       | `MainActivity.kt`                                        |
 | 新增-17 | 重复点下载/整张专辑下载时跳过已在本地或队列中的歌曲          | `downloads.go`、`server.go`、`app_state.dart`            |
+| 新增-18 | 空闲时停止下载轮询，避免每 2 秒唤醒 CPU 与请求本地接口       | `app_state.dart`                                         |
 | 构建    | Android 只出 arm64-v8a 单包（Flutter + 插件 ABI 一并裁剪） | `build.gradle.kts`、`build_mobile_core.sh`、CI           |
 
 验证方式见 `docs/android-verification.md` 与 `docs/testing-guide.md` 第 5.1 节。
@@ -81,6 +82,12 @@ Android 是当前唯一验收平台。通知、下载、媒体库、后台播放
 1. 版本号 `1.0.5+6`，推 tag `v1.0.5` 后 CI 产出预发布 `v1.0.5-android.26`（含 `soundisle-android.apk` 与 `apk-certs.txt`），可覆盖安装 1.0.4；
 2. 重复点「下载」或下载已含本地歌曲的专辑时，后端会跳过已存在/进行中的歌曲，不再产生重复任务；
 3. 下载提示会说明「已加入 N 首，M 首已存在」，重复点击不再像无响应。
+
+### 1.0.6
+
+1. 版本号 `1.0.6+7`，可覆盖安装 1.0.5；
+2. 下载/补全任务全部结束后自动停止 2 秒轮询，空闲时不再持续请求本地接口与唤醒 CPU；
+3. 轮询增加重入保护，单次请求变慢时不会叠加并发请求。
 
 ## 4. 下一批候选（Android 收口后再启动跨平台）
 

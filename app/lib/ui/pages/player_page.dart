@@ -43,8 +43,9 @@ class _PlayerPageState extends State<PlayerPage> {
     final screen = MediaQuery.sizeOf(context);
     final artSize = (screen.shortestSide * 0.68).clamp(220.0, 380.0);
 
+    final background = Theme.of(context).scaffoldBackgroundColor;
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A11),
+      backgroundColor: background,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -56,13 +57,17 @@ class _PlayerPageState extends State<PlayerPage> {
                 child: CachedNetworkImage(imageUrl: cover, fit: BoxFit.cover),
               ),
             ),
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x660A0A11), Color(0xCC0A0A11), Color(0xFF0A0A11)],
-                stops: [0, 0.55, 1],
+                colors: [
+                  background.withValues(alpha: 0.4),
+                  background.withValues(alpha: 0.8),
+                  background,
+                ],
+                stops: const [0, 0.55, 1],
               ),
             ),
           ),
@@ -145,7 +150,7 @@ class _PlayerPageState extends State<PlayerPage> {
           Expanded(
             child: Column(
               children: [
-                Text('正在播放', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: Colors.white.withValues(alpha: 0.42))),
+                Text('正在播放', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: context.neutral(0.42))),
                 const SizedBox(height: 3),
                 SourceBadge(name: app.sourceName(song.source)),
                 if (player.playInfo?.fallback == true) ...[
@@ -176,7 +181,7 @@ class _PlayerPageState extends State<PlayerPage> {
             children: [
               Text(song.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, height: 1.2)),
               const SizedBox(height: 6),
-              Text(song.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, color: Colors.white.withValues(alpha: 0.52))),
+              Text(song.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, color: context.neutral(0.52))),
             ],
           ),
         ),
@@ -186,7 +191,7 @@ class _PlayerPageState extends State<PlayerPage> {
           },
           icon: Icon(
             app.isFavorite(song) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            color: app.isFavorite(song) ? AppColors.accentAlt : Colors.white.withValues(alpha: 0.7),
+            color: app.isFavorite(song) ? AppColors.accentAlt : context.neutral(0.7),
           ),
         ),
       ],
@@ -226,7 +231,7 @@ class _PlayerPageState extends State<PlayerPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(_fmt(Duration(milliseconds: played.round())),
-                      style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.42))),
+                      style: TextStyle(fontSize: 10.5, color: context.neutral(0.42))),
                   Row(
                     children: [
                       if (player.preview) ...[
@@ -240,7 +245,7 @@ class _PlayerPageState extends State<PlayerPage> {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      Text(_fmt(duration), style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.42))),
+                      Text(_fmt(duration), style: TextStyle(fontSize: 10.5, color: context.neutral(0.42))),
                     ],
                   ),
                 ],
@@ -259,7 +264,7 @@ class _PlayerPageState extends State<PlayerPage> {
         IconButton(
           onPressed: player.toggleShuffle,
           icon: Icon(Icons.shuffle_rounded,
-              size: 22, color: player.shuffle ? AppColors.accent : Colors.white.withValues(alpha: 0.55)),
+              size: 22, color: player.shuffle ? AppColors.accent : context.neutral(0.55)),
         ),
         IconButton(
           onPressed: () => player.previous(),
@@ -270,17 +275,17 @@ class _PlayerPageState extends State<PlayerPage> {
           child: Container(
             width: 72,
             height: 72,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Color(0x557B6CFF), blurRadius: 24, offset: Offset(0, 6))],
+              color: context.invertedFill,
+              boxShadow: const [BoxShadow(color: Color(0x557B6CFF), blurRadius: 24, offset: Offset(0, 6))],
             ),
             child: player.loading
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.black87),
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: CircularProgressIndicator(strokeWidth: 2.4, color: context.invertedInk),
                   )
-                : Icon(player.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 40, color: Colors.black),
+                : Icon(player.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 40, color: context.invertedInk),
           ),
         ),
         IconButton(
@@ -289,7 +294,7 @@ class _PlayerPageState extends State<PlayerPage> {
         ),
         IconButton(
           onPressed: () => _showQueue(context),
-          icon: Icon(Icons.format_list_bulleted_rounded, size: 22, color: Colors.white.withValues(alpha: 0.55)),
+          icon: Icon(Icons.format_list_bulleted_rounded, size: 22, color: context.neutral(0.55)),
         ),
       ],
     );
@@ -443,9 +448,9 @@ class _PlayerPageState extends State<PlayerPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: Colors.white.withValues(alpha: 0.55)),
+            Icon(icon, size: 20, color: context.neutral(0.55)),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.42))),
+            Text(label, style: TextStyle(fontSize: 10, color: context.neutral(0.42))),
           ],
         ),
       ),
@@ -461,10 +466,10 @@ class _PlayerPageState extends State<PlayerPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lyrics_outlined, size: 40, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(Icons.lyrics_outlined, size: 40, color: context.neutral(0.2)),
             const SizedBox(height: 12),
             Text(player.rawLyric.isEmpty ? '暂无歌词' : '歌词格式无法识别',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
+                style: TextStyle(color: context.neutral(0.4), fontSize: 13)),
           ],
         ),
       );
@@ -496,7 +501,7 @@ class _PlayerPageState extends State<PlayerPage> {
                   fontSize: active ? 17 : 14,
                   height: 1.6,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: active ? Colors.white : Colors.white.withValues(alpha: 0.32),
+                  color: active ? Theme.of(context).colorScheme.onSurface : context.neutral(0.32),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
@@ -534,9 +539,18 @@ class _PlayerPageState extends State<PlayerPage> {
                         children: [
                           const Text('播放队列', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                           const SizedBox(width: 8),
-                          Text('${player.queue.length} 首', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+                          Text('${player.queue.length} 首', style: TextStyle(fontSize: 12, color: context.neutral(0.4))),
                           const Spacer(),
-                          Text('长按拖动排序', style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.3))),
+                          TextButton(
+                            onPressed: () async {
+                              await player.stop();
+                              if (!context.mounted) return;
+                              // Close the queue sheet and the now-empty player
+                              // page in one go.
+                              Navigator.of(context).popUntil((route) => route.isFirst);
+                            },
+                            child: const Text('停止播放', style: TextStyle(fontSize: 11.5)),
+                          ),
                         ],
                       ),
                     ),
@@ -555,14 +569,14 @@ class _PlayerPageState extends State<PlayerPage> {
                             selected: active,
                             leading: active
                                 ? const Icon(Icons.graphic_eq_rounded, color: AppColors.accent)
-                                : Text('${index + 1}', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
+                                : Text('${index + 1}', style: TextStyle(color: context.neutral(0.3), fontSize: 12)),
                             title: Text(song.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
                             subtitle: Text(song.artist, maxLines: 1, overflow: TextOverflow.ellipsis),
                             trailing: IconButton(
-                              icon: Icon(Icons.close_rounded, size: 18, color: Colors.white.withValues(alpha: 0.35)),
+                              icon: Icon(Icons.close_rounded, size: 18, color: context.neutral(0.35)),
                               onPressed: () => player.removeFromQueue(index),
                             ),
                             onTap: () => player.playSong(song, queue: player.queue, startIndex: index),

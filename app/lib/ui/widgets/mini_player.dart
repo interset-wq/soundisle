@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../core/player_controller.dart';
+import '../theme.dart';
 import 'cover_art.dart';
 import 'player_route.dart';
 
@@ -17,7 +18,7 @@ class MiniPlayer extends StatelessWidget {
     final song = player.current!;
     final cover = app.api.coverUrl(song.cover, source: song.source);
     return Material(
-      color: const Color(0xFF16161F),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: InkWell(
         onTap: () => openPlayerPage(context),
         child: Column(
@@ -32,7 +33,7 @@ class MiniPlayer extends StatelessWidget {
                 return LinearProgressIndicator(
                   value: value,
                   minHeight: 2,
-                  backgroundColor: Colors.white.withValues(alpha: 0.08),
+                  backgroundColor: context.neutral(0.08),
                   valueColor: const AlwaysStoppedAnimation(Color(0xFFB3A9FF)),
                 );
               },
@@ -81,7 +82,7 @@ class MiniPlayer extends StatelessWidget {
                         Text(song.artist,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.45))),
+                            style: TextStyle(fontSize: 11, color: context.neutral(0.45))),
                       ],
                     ),
                   ),
@@ -98,7 +99,7 @@ class MiniPlayer extends StatelessWidget {
                     icon: Icon(
                       app.isFavorite(song) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                       size: 20,
-                      color: app.isFavorite(song) ? const Color(0xFFFF6B9A) : Colors.white.withValues(alpha: 0.5),
+                      color: app.isFavorite(song) ? const Color(0xFFFF6B9A) : context.neutral(0.5),
                     ),
                   ),
                   IconButton(

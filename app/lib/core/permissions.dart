@@ -34,10 +34,43 @@ class AppPermissions {
         channelExists: raw['channelExists'] == true,
         channelImportance: (raw['channelImportance'] as num?)?.toInt() ?? -1,
         activeNotifications: (raw['activeNotifications'] as num?)?.toInt() ?? 0,
+        mediaNotificationActive: raw['mediaNotificationActive'] == true,
+        channelEnabled: raw['channelEnabled'] != false,
       );
     } catch (_) {
       return null;
     }
+  }
+
+  /// Asks for the notification permission again. Android only shows the
+  /// dialog while the user has not permanently denied it, so this is safe to
+  /// call whenever playback starts.
+  static Future<void> requestNotificationPermission() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>('requestNotificationPermission');
+    } catch (_) {}
+  }
+
+  /// Posts a plain test notification, bypassing the media session, so the user
+  /// can tell whether notifications work on this device at all.
+  static Future<String> sendTestNotification() async {
+    if (!Platform.isAndroid) return 'unsupported';
+    try {
+      final raw = await _channel.invokeMapMethod<String, dynamic>('sendTestNotification');
+      if (raw == null) return 'unsupported';
+      if (raw['posted'] == true) return 'posted';
+      return '${raw['reason'] ?? 'failed'}';
+    } catch (_) {
+      return 'failed';
+    }
+  }
+
+  static Future<void> openChannelSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>('openChannelSettings');
+    } catch (_) {}
   }
 
   static Future<void> openNotificationSettings() async {
@@ -56,6 +89,8 @@ class NotificationStatus {
     required this.channelExists,
     required this.channelImportance,
     this.activeNotifications = 0,
+    this.mediaNotificationActive = false,
+    this.channelEnabled = true,
   });
 
   final bool enabled;
@@ -65,12 +100,19 @@ class NotificationStatus {
   final int channelImportance;
   final int activeNotifications;
 
+  /// Whether the media notification itself (id 1124) is currently posted.
+  final bool mediaNotificationActive;
+
+  /// Whether the media channel is allowed by the system.
+  final bool channelEnabled;
+
   String get label {
-    if (!permissionGranted) return '未授权 · 点按打开设置';
-    if (!appEnabled) return '系统已关闭通知 · 点按打开设置';
+    if (!permissionGranted) return '未授权 · 点按去开启';
+    if (!appEnabled) return '系统已关闭通知 · 点按去开启';
     if (!channelExists) return '已授权 · 播放后创建通知';
-    if (channelImportance <= 0) return '通知渠道已关闭 · 点按打开设置';
-    if (activeNotifications > 0) return '已启用 · 通知已显示';
+    if (!channelEnabled || channelImportance <= 0) return '媒体通知渠道已关闭 · 点按去开启';
+    if (mediaNotificationActive) return '已启用 · 媒体通知已显示';
+    if (activeNotifications > 0) return '已启用 · 有其他通知在途';
     return '已启用 · 播放后显示';
   }
 }

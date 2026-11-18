@@ -47,7 +47,7 @@ class CollectionPage extends StatelessWidget {
             SliverAppBar(
               pinned: true,
               expandedHeight: 280,
-              backgroundColor: const Color(0xFF0A0A11),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               actions: [
                 IconButton(
                   onPressed: () => _showActions(context, app, collection),
@@ -68,7 +68,7 @@ class CollectionPage extends StatelessWidget {
                           end: Alignment.bottomRight,
                           colors: [
                             AppColors.accent.withValues(alpha: 0.32),
-                            const Color(0xFF0A0A11),
+                            Theme.of(context).scaffoldBackgroundColor,
                           ],
                         ),
                       ),
@@ -95,7 +95,7 @@ class CollectionPage extends StatelessWidget {
                               children: [
                                 Text(
                                   collection.isFavorites ? '我喜欢的音乐' : '我的歌单',
-                                  style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: Colors.white.withValues(alpha: 0.5)),
+                                  style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: context.neutral(0.5)),
                                 ),
                                 const SizedBox(height: 5),
                                 Text(collection.name,
@@ -104,7 +104,7 @@ class CollectionPage extends StatelessWidget {
                                     style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, height: 1.15)),
                                 const SizedBox(height: 8),
                                 Text('${songs.length} 首歌曲',
-                                    style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.48))),
+                                    style: TextStyle(fontSize: 11.5, color: context.neutral(0.48))),
                               ],
                             ),
                           ),
@@ -124,8 +124,8 @@ class CollectionPage extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: songs.isEmpty ? null : () => playSongList(context, songs, 0),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
+                          backgroundColor: context.invertedFill,
+                          foregroundColor: context.invertedInk,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
@@ -166,10 +166,10 @@ class CollectionPage extends StatelessWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                        Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: Colors.white.withValues(alpha: 0.35)),
+                          icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: context.neutral(0.35)),
                           tooltip: '从歌单移除',
                           onPressed: () => app.removeFromCollection(collection.id, song),
                         ),

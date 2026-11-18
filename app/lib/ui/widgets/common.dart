@@ -24,7 +24,7 @@ class SectionHeader extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle!, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.45))),
+                  Text(subtitle!, style: TextStyle(fontSize: 12, color: context.neutral(0.45))),
                 ],
               ],
             ),
@@ -100,9 +100,9 @@ class SectionCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.045),
+        color: context.subtleFill,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: context.subtleBorder),
       ),
       child: child,
     );
@@ -130,9 +130,9 @@ class EmptyState extends StatelessWidget {
               height: 78,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.05),
+                color: context.neutral(0.05),
               ),
-              child: Icon(icon, size: 34, color: Colors.white.withValues(alpha: 0.35)),
+              child: Icon(icon, size: 34, color: context.neutral(0.35)),
             ),
             const SizedBox(height: 18),
             Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
@@ -141,7 +141,7 @@ class EmptyState extends StatelessWidget {
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.42), height: 1.5),
+                style: TextStyle(fontSize: 13, color: context.neutral(0.42), height: 1.5),
               ),
             ],
             if (action != null) ...[const SizedBox(height: 18), action!],
@@ -169,7 +169,7 @@ class LoadingList extends StatelessWidget {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: context.neutral(0.05),
               borderRadius: BorderRadius.circular(12),
             ),
           ),
@@ -182,7 +182,7 @@ class LoadingList extends StatelessWidget {
                   width: 150 + (index % 3) * 30,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: context.neutral(0.06),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -191,7 +191,7 @@ class LoadingList extends StatelessWidget {
                   width: 90,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.035),
+                    color: context.neutral(0.035),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),

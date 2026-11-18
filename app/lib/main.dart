@@ -25,9 +25,11 @@ Future<void> main() async {
       // Adaptive launcher icons are invalid as notification small icons on
       // some Android builds; use the dedicated monochrome drawable instead.
       androidNotificationIcon: 'drawable/ic_stat_soundisle',
-      // Keep the media notification (and its controls) visible while paused so
-      // playback can be resumed from the shade or lock screen.
-      androidNotificationOngoing: false,
+      // Keep the media notification (and its controls) in the shade while a
+      // track is loaded, including while paused, and make it ongoing so it is
+      // not dismissed by a stray swipe. audio_service adds a stop button that
+      // removes it when the user really wants it gone.
+      androidNotificationOngoing: true,
       androidStopForegroundOnPause: false,
     );
   }
@@ -61,9 +63,15 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached) {
-      unawaited(BackendService.instance.stop());
-    }
+    if (state != AppLifecycleState.detached) return;
+    // audio_service keeps its Flutter engine and the foreground service alive
+    // after the task is removed, but the audio itself is streamed by the local
+    // Go core. Stopping that server here would cut background playback and
+    // remove the media notification, so keep it running while a track is loaded
+    // (playing or paused). With no track loaded the process is free to go.
+    final player = _player;
+    if (player != null && player.hasSong) return;
+    unawaited(BackendService.instance.stop());
   }
 
   @override
@@ -110,20 +118,21 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
-    final theme = AppTheme.dark();
+    // The stored theme lives in the backend settings and is only available
+    // after boot, so the splash follows the system brightness to avoid a
+    // jarring flash for users who picked light mode.
+    Widget splashApp(Widget home) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
+      home: home,
+    );
     if (_loading) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: theme,
-        home: const _SplashScreen(),
-      );
+      return splashApp(const _SplashScreen());
     }
     if (_error != null) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: theme,
-        home: _ErrorScreen(message: _error!, onRetry: _boot),
-      );
+      return splashApp(_ErrorScreen(message: _error!, onRetry: _boot));
     }
     return MultiProvider(
       providers: [
@@ -159,7 +168,7 @@ class _SplashScreen extends StatelessWidget {
             const SizedBox(height: 26),
             const Text('声屿', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: 2)),
             const SizedBox(height: 10),
-            Text('正在启动音乐核心…', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.42))),
+            Text('正在启动音乐核心…', style: TextStyle(fontSize: 12, color: context.neutral(0.42))),
             const SizedBox(height: 26),
             const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2)),
           ],
@@ -201,7 +210,7 @@ class _ErrorScreen extends StatelessWidget {
                 SelectableText(
                   message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, height: 1.6, color: Colors.white.withValues(alpha: 0.5)),
+                  style: TextStyle(fontSize: 12, height: 1.6, color: context.neutral(0.5)),
                 ),
                 const SizedBox(height: 22),
                 FilledButton.icon(

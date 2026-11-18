@@ -1,7 +1,9 @@
 package app.soundisle.music
 
 import android.Manifest
+import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
@@ -15,6 +17,7 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -35,6 +38,15 @@ class MainActivity : AudioServiceActivity() {
     private val permissionChannelName = "app.soundisle/permissions"
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private companion object {
+        const val AUDIO_CHANNEL_ID = "app.soundisle.channel.audio"
+        const val TEST_CHANNEL_ID = "app.soundisle.channel.test"
+        const val TEST_NOTIFICATION_ID = 4301
+
+        // audio_service uses this fixed id for the media notification.
+        const val MEDIA_NOTIFICATION_ID = 1124
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
@@ -49,6 +61,15 @@ class MainActivity : AudioServiceActivity() {
                         result.success(true)
                     }
                     "notificationStatus" -> result.success(notificationStatus())
+                    "requestNotificationPermission" -> {
+                        requestNotificationPermission()
+                        result.success(true)
+                    }
+                    "sendTestNotification" -> result.success(sendTestNotification())
+                    "openChannelSettings" -> {
+                        openChannelSettings()
+                        result.success(true)
+                    }
                     "openNotificationSettings" -> {
                         openNotificationSettings()
                         result.success(true)
@@ -90,20 +111,107 @@ class MainActivity : AudioServiceActivity() {
         } else {
             true
         }
-        val channel = manager.getNotificationChannel("app.soundisle.channel.audio")
-        val active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            manager.activeNotifications.size
-        } else {
-            0
-        }
+        val channel = manager.getNotificationChannel(AUDIO_CHANNEL_ID)
+        val active = manager.activeNotifications
+        val mediaActive = active.any { it.id == MEDIA_NOTIFICATION_ID }
         return mapOf(
             "granted" to (granted && manager.areNotificationsEnabled()),
             "permissionGranted" to granted,
             "appEnabled" to manager.areNotificationsEnabled(),
             "channelExists" to (channel != null),
             "channelImportance" to (channel?.importance ?: -1),
-            "activeNotifications" to active,
+            "activeNotifications" to active.size,
+            "mediaNotificationActive" to mediaActive,
+            "channelEnabled" to (channel == null || channel.importance > 0),
         )
+    }
+
+    /**
+     * Asks for the Android 13+ notification permission again. Safe to call on
+     * every playback: the system ignores it once the permission is granted and
+     * simply returns the current state after a permanent denial.
+     */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            4203,
+        )
+    }
+
+    /**
+     * Posts a normal notification so the user can tell whether notifications
+     * work at all on this device, independently of the media session.
+     */
+    private fun sendTestNotification(): Map<String, Any> {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val permissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+        if (!permissionGranted) {
+            return mapOf("posted" to false, "reason" to "permission")
+        }
+        if (!manager.areNotificationsEnabled()) {
+            return mapOf("posted" to false, "reason" to "app_disabled")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val existing = manager.getNotificationChannel(TEST_CHANNEL_ID)
+            if (existing == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        TEST_CHANNEL_ID,
+                        "通知测试",
+                        NotificationManager.IMPORTANCE_DEFAULT,
+                    ).apply {
+                        description = "用于确认通知权限与显示是否正常"
+                    },
+                )
+            } else if (existing.importance == NotificationManager.IMPORTANCE_NONE) {
+                return mapOf("posted" to false, "reason" to "channel_disabled")
+            }
+        }
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        val contentIntent = if (launch != null) {
+            PendingIntent.getActivity(
+                this,
+                0,
+                launch,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        } else {
+            null
+        }
+        val notification = NotificationCompat.Builder(this, TEST_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_soundisle)
+            .setContentTitle("声屿通知测试")
+            .setContentText("能看到这条通知，说明通知权限与渠道正常")
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        manager.notify(TEST_NOTIFICATION_ID, notification)
+        return mapOf("posted" to true, "reason" to "ok")
+    }
+
+    /** Opens the system screen for the media notification channel. */
+    private fun openChannelSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                .putExtra(Settings.EXTRA_CHANNEL_ID, AUDIO_CHANNEL_ID)
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:$packageName"))
+        }
+        runCatching { startActivity(intent) }
     }
 
     /**

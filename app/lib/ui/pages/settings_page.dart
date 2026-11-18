@@ -60,6 +60,22 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _notificationStatus = status);
   }
 
+  /// Posts a normal notification so the user can verify the permission and
+  /// channel without starting playback.
+  Future<void> _sendTestNotification() async {
+    final result = await AppPermissions.sendTestNotification();
+    if (!mounted) return;
+    final message = switch (result) {
+      'posted' => '测试通知已发送，请下拉通知栏查看',
+      'permission' => '通知权限未开启，请在系统设置中允许「声屿」通知',
+      'app_disabled' => '系统已关闭「声屿」通知，请点按「播放通知」去开启',
+      'channel_disabled' => '「通知测试」渠道被关闭，请在通知设置中重新允许',
+      _ => '无法发送测试通知，请检查系统通知设置',
+    };
+    showAppSnack(context, message);
+    await _refreshNotificationStatus();
+  }
+
   Future<void> _loadCookies() async {
     final api = context.read<ApiClient>();
     try {
@@ -78,6 +94,11 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final themeMode = switch (app.settings.themeMode) {
+      'light' => 'light',
+      'dark' => 'dark',
+      _ => 'system',
+    };
     return Scaffold(
       appBar: AppBar(
         title: const Text('设置', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -105,7 +126,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           fontWeight: app.defaultSources.contains(source.id) ? FontWeight.w700 : FontWeight.w500,
                         ),
                         selectedColor: AppColors.accent.withValues(alpha: 0.24),
-                        backgroundColor: Colors.white.withValues(alpha: 0.045),
+                        backgroundColor: context.neutral(0.045),
                         side: BorderSide.none,
                         onSelected: (selected) async {
                           final next = List<String>.from(app.defaultSources);
@@ -194,16 +215,41 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-          _sectionTitle('外观', '当前版本以深色界面为主'),
+          _sectionTitle('外观', '选择跟随系统、浅色或深色界面'),
           SectionCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                const ListTile(
-                  leading: Icon(Icons.dark_mode_rounded),
-                  title: Text('深色模式'),
-                  subtitle: Text('跟随系统 / 浅色主题正在适配'),
-                  trailing: Switch(value: true, onChanged: null),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'system',
+                          icon: Icon(Icons.brightness_auto_rounded, size: 16),
+                          label: Text('跟随系统'),
+                        ),
+                        ButtonSegment(
+                          value: 'light',
+                          icon: Icon(Icons.light_mode_rounded, size: 16),
+                          label: Text('浅色'),
+                        ),
+                        ButtonSegment(
+                          value: 'dark',
+                          icon: Icon(Icons.dark_mode_rounded, size: 16),
+                          label: Text('深色'),
+                        ),
+                      ],
+                      selected: {themeMode},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (values) async {
+                        await app.setThemeMode(values.first);
+                        if (context.mounted) showAppSnack(context, '外观已更新');
+                      },
+                    ),
+                  ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.open_in_full_rounded),
@@ -243,7 +289,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       icon: const Icon(Icons.refresh_rounded, size: 20),
                       onPressed: _refreshNotificationStatus,
                     ),
-                    onTap: AppPermissions.openNotificationSettings,
+                    onTap: AppPermissions.openChannelSettings,
+                  ),
+                if (_notificationStatus != null)
+                  ListTile(
+                    leading: const Icon(Icons.notification_add_rounded),
+                    title: const Text('发送测试通知'),
+                    subtitle: const Text('不播放音乐，只验证通知权限与渠道是否正常'),
+                    onTap: _sendTestNotification,
                   ),
                 ListTile(
                   leading: const Icon(Icons.dns_rounded),
@@ -277,7 +330,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.34))),
+            Text(subtitle, style: TextStyle(fontSize: 10.5, color: context.neutral(0.34))),
           ],
         ],
       ),
@@ -326,7 +379,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Text(source.note,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.4))),
+                          style: TextStyle(fontSize: 10.5, color: context.neutral(0.4))),
                     ),
                 ],
               ),
@@ -437,7 +490,7 @@ class _SettingsPageState extends State<SettingsPage> {
         'embedLyrics': true,
         'defaultSearchSources': app.defaultSources,
         'preferredQuality': 'best',
-        'themeMode': 'dark',
+        'themeMode': app.settings.themeMode,
       };
       await api.updateSettings(patch);
       await app.initialize();

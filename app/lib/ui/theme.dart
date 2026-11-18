@@ -7,6 +7,37 @@ class AppColors {
   static const darkSurface = Color(0xFF14141E);
   static const darkCard = Color(0xFF1B1B27);
   static const lightBackground = Color(0xFFF7F6FB);
+  static const lightSurface = Color(0xFFFFFFFF);
+  static const lightCard = Color(0xFFFFFFFF);
+  static const lightBorder = Color(0x14000000);
+}
+
+/// Theme-aware neutrals.
+///
+/// The UI was originally written against a fixed dark background, so many
+/// widgets used translucent white for secondary text, icons, borders and
+/// subtle fills. These helpers keep the same contrast in the light theme
+/// without sprinkling `Brightness` checks through every page.
+extension AppThemeColors on BuildContext {
+  /// White-ish in the dark theme, near-black in the light theme.
+  Color neutral(double alpha) =>
+      Theme.of(this).colorScheme.onSurface.withValues(alpha: alpha);
+
+  /// Background for inverted pills (play-all buttons, the main play button).
+  Color get invertedFill => Theme.of(this).colorScheme.onSurface;
+
+  /// Foreground used on top of [invertedFill].
+  Color get invertedInk => Theme.of(this).colorScheme.surface;
+
+  /// Subtle translucent fill for cards and chips.
+  Color get subtleFill => neutral(
+    Theme.of(this).brightness == Brightness.dark ? 0.045 : 0.05,
+  );
+
+  /// Hairline border between cards and the page background.
+  Color get subtleBorder => neutral(
+    Theme.of(this).brightness == Brightness.dark ? 0.05 : 0.08,
+  );
 }
 
 class AppTheme {
@@ -99,18 +130,32 @@ class AppTheme {
   }
 
   static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(seedColor: AppColors.accent, brightness: Brightness.light);
+    final scheme = ColorScheme.fromSeed(
+      seedColor: AppColors.accent,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: const Color(0xFF6B5CE6),
+      secondary: AppColors.accentAlt,
+      surface: AppColors.lightSurface,
+      surfaceContainerHighest: const Color(0xFFF0EEF7),
+    );
     final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.lightBackground,
+      splashFactory: InkSparkle.splashFactory,
     );
     return base.copyWith(
       textTheme: _textTheme(base.textTheme),
-      appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent, elevation: 0, scrolledUnderElevation: 0),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+      ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: AppColors.lightCard,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         margin: EdgeInsets.zero,
@@ -119,29 +164,56 @@ class AppTheme {
         backgroundColor: Colors.white,
         indicatorColor: AppColors.accent.withValues(alpha: 0.16),
         height: 68,
+        labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
         elevation: 0,
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.black.withValues(alpha: 0.04),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-      ),
-      bottomSheetTheme: const BottomSheetThemeData(
+      navigationRailTheme: NavigationRailThemeData(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-        showDragHandle: true,
+        indicatorColor: AppColors.accent.withValues(alpha: 0.16),
+        selectedLabelTextStyle: const TextStyle(fontWeight: FontWeight.w700),
+        labelType: NavigationRailLabelType.all,
       ),
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
-        actionTextColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      sliderTheme: SliderThemeData(
+        trackHeight: 3,
+        activeTrackColor: scheme.onSurface,
+        inactiveTrackColor: scheme.onSurface.withValues(alpha: 0.16),
+        thumbColor: scheme.onSurface,
+        overlayColor: scheme.onSurface.withValues(alpha: 0.08),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        modalBackgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        showDragHandle: true,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2E2E42),
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
+        actionTextColor: AppColors.accent,
+        closeIconColor: Colors.white70,
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.black.withValues(alpha: 0.04),
+        hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.42)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: AppColors.accent.withValues(alpha: 0.7)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+      ),
+      listTileTheme: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16)),
+      dividerTheme: DividerThemeData(color: scheme.onSurface.withValues(alpha: 0.08), thickness: 1),
     );
   }
 

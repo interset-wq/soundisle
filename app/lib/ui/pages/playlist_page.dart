@@ -101,13 +101,15 @@ class _PlaylistPageState extends State<PlaylistPage> {
             SliverAppBar(
               expandedHeight: isWide ? 330 : 300,
               pinned: true,
-              backgroundColor: const Color(0xFF0A0A11),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               leading: IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), shape: BoxShape.circle),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+                  // The scrim sits on top of the blurred cover in both themes,
+                  // so the icon stays white instead of following onSurface.
+                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.38), shape: BoxShape.circle),
+                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white),
                 ),
               ),
               actions: [
@@ -123,13 +125,17 @@ class _PlaylistPageState extends State<PlaylistPage> {
                         imageFilter: ImageFilter.blur(sigmaX: 36, sigmaY: 36),
                         child: Opacity(opacity: 0.5, child: CachedNetworkImage(imageUrl: cover, fit: BoxFit.cover)),
                       ),
-                    const DecoratedBox(
+                    DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Color(0x550A0A11), Color(0xCC0A0A11), Color(0xFF0A0A11)],
-                          stops: [0, 0.68, 1],
+                          colors: [
+                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.33),
+                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
+                            Theme.of(context).scaffoldBackgroundColor,
+                          ],
+                          stops: const [0, 0.68, 1],
                         ),
                       ),
                     ),
@@ -155,7 +161,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                               children: [
                                 Text(
                                   widget.type == 'album' ? '专辑' : '歌单',
-                                  style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: Colors.white.withValues(alpha: 0.5)),
+                                  style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: context.neutral(0.5)),
                                 ),
                                 const SizedBox(height: 5),
                                 Text(widget.name,
@@ -172,7 +178,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                                         widget.creator.isEmpty ? '${_songs.length} 首歌曲' : '${widget.creator} · ${_songs.length} 首',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.48)),
+                                        style: TextStyle(fontSize: 11, color: context.neutral(0.48)),
                                       ),
                                     ),
                                   ],
@@ -203,8 +209,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
                       child: FilledButton.icon(
                         onPressed: _songs.isEmpty ? null : () => playSongList(context, _songs, 0),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
+                          backgroundColor: context.invertedFill,
+                          foregroundColor: context.invertedInk,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
@@ -270,11 +276,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                        Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
                         const SizedBox(width: 4),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                          icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
                           onPressed: () => showSongActions(context, song),
                         ),
                       ],
@@ -392,7 +398,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
         widget.text,
         maxLines: _expanded ? null : 2,
         overflow: _expanded ? null : TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, height: 1.5, color: Colors.white.withValues(alpha: 0.42)),
+        style: TextStyle(fontSize: 12, height: 1.5, color: context.neutral(0.42)),
       ),
     );
   }

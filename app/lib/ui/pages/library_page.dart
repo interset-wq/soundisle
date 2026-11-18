@@ -51,8 +51,8 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
           tabAlignment: TabAlignment.start,
           indicatorSize: TabBarIndicatorSize.label,
           dividerColor: Colors.transparent,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withValues(alpha: 0.42),
+          labelColor: Theme.of(context).colorScheme.onSurface,
+          unselectedLabelColor: context.neutral(0.42),
           labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           tabs: [
@@ -290,22 +290,22 @@ class _LocalTabState extends State<_LocalTab> {
         decoration: InputDecoration(
           isDense: true,
           hintText: '搜索歌名、歌手、专辑',
-          hintStyle: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.32)),
-          prefixIcon: Icon(Icons.search_rounded, size: 18, color: Colors.white.withValues(alpha: 0.38)),
+          hintStyle: TextStyle(fontSize: 12.5, color: context.neutral(0.32)),
+          prefixIcon: Icon(Icons.search_rounded, size: 18, color: context.neutral(0.38)),
           prefixIconConstraints: const BoxConstraints(minWidth: 38),
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
                   tooltip: '清除',
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.close_rounded, size: 17, color: Colors.white.withValues(alpha: 0.45)),
+                  icon: Icon(Icons.close_rounded, size: 17, color: context.neutral(0.45)),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _query = '');
                   },
                 ),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.05),
+          fillColor: context.neutral(0.05),
           contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -425,15 +425,15 @@ class _LocalTabState extends State<_LocalTab> {
           ? Icon(
               selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
               size: 20,
-              color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.28),
+              color: selected ? AppColors.accent : context.neutral(0.28),
             )
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
                   onPressed: () => showSongActions(context, song),
                 ),
               ],
@@ -617,7 +617,7 @@ class _ModeChip extends StatelessWidget {
     return Material(
       color: selected
           ? AppColors.accent.withValues(alpha: 0.22)
-          : Colors.white.withValues(alpha: 0.055),
+          : context.neutral(0.055),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -627,14 +627,14 @@ class _ModeChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: selected ? AppColors.accent : Colors.white.withValues(alpha: 0.45)),
+              Icon(icon, size: 14, color: selected ? AppColors.accent : context.neutral(0.45)),
               const SizedBox(width: 5),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.6),
+                  color: selected ? context.invertedFill : context.neutral(0.6),
                 ),
               ),
             ],
@@ -699,7 +699,7 @@ class _GroupHeader extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.4)),
+                      style: TextStyle(fontSize: 10.5, color: context.neutral(0.4)),
                     ),
                   ],
                 ),
@@ -714,7 +714,7 @@ class _GroupHeader extends StatelessWidget {
                             ? Icons.check_circle_rounded
                             : Icons.remove_circle_outline_rounded),
                     size: 22,
-                    color: selectedCount == 0 ? Colors.white.withValues(alpha: 0.28) : AppColors.accent,
+                    color: selectedCount == 0 ? context.neutral(0.28) : AppColors.accent,
                   ),
                 )
               else ...[
@@ -727,7 +727,7 @@ class _GroupHeader extends StatelessWidget {
                 Icon(
                   expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                   size: 20,
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: context.neutral(0.35),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -755,7 +755,7 @@ class _BatchAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final tint = enabled ? (color ?? Colors.white) : Colors.white.withValues(alpha: 0.24);
+    final tint = enabled ? (color ?? context.invertedFill) : context.neutral(0.24);
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -771,7 +771,7 @@ class _BatchAction extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
-                color: enabled ? (color ?? Colors.white.withValues(alpha: 0.75)) : tint,
+                color: enabled ? (color ?? context.neutral(0.75)) : tint,
               ),
             ),
           ],
@@ -827,10 +827,10 @@ class _FavoritesTab extends StatelessWidget {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                          Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
                           IconButton(
                             visualDensity: VisualDensity.compact,
-                            icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                            icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
                             onPressed: () => showSongActions(context, song),
                           ),
                         ],
@@ -946,14 +946,14 @@ class _NewCollectionCard extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                color: Colors.white.withValues(alpha: 0.04),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                color: context.neutral(0.04),
+                border: Border.all(color: context.subtleBorder),
               ),
-              child: Icon(Icons.add_rounded, size: 30, color: Colors.white.withValues(alpha: 0.32)),
+              child: Icon(Icons.add_rounded, size: 30, color: context.neutral(0.32)),
             ),
           ),
           const SizedBox(height: 8),
-          Text('新建歌单', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+          Text('新建歌单', style: TextStyle(fontSize: 12, color: context.neutral(0.5))),
         ],
       ),
     );
@@ -1090,7 +1090,7 @@ class _DownloadTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
-                              color: task.status == 'failed' ? Colors.redAccent.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.42),
+                              color: task.status == 'failed' ? Colors.redAccent.withValues(alpha: 0.8) : context.neutral(0.42),
                             ),
                           ),
                         ),
@@ -1103,7 +1103,7 @@ class _DownloadTile extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: task.progress == 0 ? null : task.progress,
                           minHeight: 3,
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          backgroundColor: context.neutral(0.08),
                         ),
                       ),
                     ],
@@ -1178,7 +1178,7 @@ class _DownloadTile extends StatelessWidget {
                 icon: Icon(
                   task.status == 'done' ? Icons.check_circle_rounded : Icons.close_rounded,
                   size: task.status == 'done' ? 20 : 18,
-                  color: task.status == 'done' ? const Color(0xFF54D68C) : Colors.white.withValues(alpha: 0.35),
+                  color: task.status == 'done' ? const Color(0xFF54D68C) : context.neutral(0.35),
                 ),
                 onPressed: () => app.removeDownload(task.id),
               ),
@@ -1257,7 +1257,7 @@ class _ListToolbar extends StatelessWidget {
               children: [
                 Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.38))),
+                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: context.neutral(0.38))),
               ],
             ),
           ),

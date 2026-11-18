@@ -190,11 +190,11 @@ class _HomePageState extends State<HomePage> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${index + 1}', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.25))),
+                Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
                 const SizedBox(width: 2),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
                   onPressed: () => showSongActions(context, song),
                 ),
               ],
@@ -280,6 +280,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _hero(BuildContext context, AppState app) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hour = DateTime.now().hour;
     final greeting = hour < 6
         ? '夜深了'
@@ -294,12 +295,14 @@ class _HomePageState extends State<HomePage> {
         children: [
           Positioned.fill(
             child: DecoratedBox(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF241D4F), Color(0xFF12101F), Color(0xFF0A0A11)],
-                  stops: [0, 0.55, 1],
+                  colors: isDark
+                      ? const [Color(0xFF241D4F), Color(0xFF12101F), Color(0xFF0A0A11)]
+                      : const [Color(0xFFE6E0FF), Color(0xFFF2EFFC), Color(0xFFF7F6FB)],
+                  stops: const [0, 0.55, 1],
                 ),
               ),
             ),
@@ -350,13 +353,13 @@ class _HomePageState extends State<HomePage> {
                       const Text('声屿', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                       const Spacer(),
                       Text('${app.localSongs.length} 首本地歌曲',
-                          style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.35))),
+                          style: TextStyle(fontSize: 10, color: context.neutral(0.35))),
                     ],
                   ),
                   const Spacer(),
                   Text(greeting, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1)),
                   const SizedBox(height: 6),
-                  Text('想听点什么？', style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.48))),
+                  Text('想听点什么？', style: TextStyle(fontSize: 14, color: context.neutral(0.48))),
                   const Spacer(),
                   GestureDetector(
                     onTap: widget.onOpenSearch,
@@ -364,22 +367,22 @@ class _HomePageState extends State<HomePage> {
                       height: 50,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.09),
+                        color: context.neutral(0.09),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+                        border: Border.all(color: context.subtleBorder),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.search_rounded, size: 21, color: Colors.white.withValues(alpha: 0.5)),
+                          Icon(Icons.search_rounded, size: 21, color: context.neutral(0.5)),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('搜索歌曲、歌手、歌单或粘贴链接',
-                                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.4))),
+                                style: TextStyle(fontSize: 13, color: context.neutral(0.4))),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: context.neutral(0.08),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text('全网', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
@@ -429,7 +432,7 @@ class _RecentSongCard extends StatelessWidget {
               song.artist,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.42)),
+              style: TextStyle(fontSize: 10.5, color: context.neutral(0.42)),
             ),
           ],
         ),

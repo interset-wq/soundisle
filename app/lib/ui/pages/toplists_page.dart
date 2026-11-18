@@ -86,10 +86,10 @@ class _TopListsPageState extends State<TopListsPage> {
                   labelStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? Colors.white : Colors.white.withValues(alpha: 0.55),
+                    color: selected ? context.invertedFill : context.neutral(0.55),
                   ),
                   selectedColor: AppColors.accent.withValues(alpha: 0.25),
-                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                  backgroundColor: context.neutral(0.05),
                   side: BorderSide.none,
                   onSelected: (_) {
                     setState(() => _source = source.id);
@@ -148,7 +148,7 @@ class _TopListRow extends StatelessWidget {
     final app = context.watch<AppState>();
     final cover = app.api.coverUrl(topList.cover, source: topList.source);
     return Material(
-      color: Colors.white.withValues(alpha: 0.04),
+      color: context.neutral(0.04),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -169,7 +169,7 @@ class _TopListRow extends StatelessWidget {
                       Text(topList.description,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.4), height: 1.35)),
+                          style: TextStyle(fontSize: 11, color: context.neutral(0.4), height: 1.35)),
                     ],
                     const SizedBox(height: 6),
                     Row(
@@ -177,13 +177,13 @@ class _TopListRow extends StatelessWidget {
                         SourceBadge(name: app.sourceName(topList.source), dense: true),
                         const SizedBox(width: 8),
                         Text(topList.updateFrequency.isEmpty ? '${topList.trackCount} 首' : topList.updateFrequency,
-                            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.34))),
+                            style: TextStyle(fontSize: 10, color: context.neutral(0.34))),
                       ],
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.25)),
+              Icon(Icons.chevron_right_rounded, color: context.neutral(0.25)),
             ],
           ),
         ),
@@ -250,19 +250,23 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
             SliverAppBar(
               pinned: true,
               expandedHeight: 280,
-              backgroundColor: const Color(0xFF0A0A11),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
                     if (cover.isNotEmpty)
                       Opacity(opacity: 0.45, child: Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())),
-                    const DecoratedBox(
+                    DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Color(0x440A0A11), Color(0xEE0A0A11), Color(0xFF0A0A11)],
+                          colors: [
+                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.27),
+                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.93),
+                            Theme.of(context).scaffoldBackgroundColor,
+                          ],
                         ),
                       ),
                     ),
@@ -285,7 +289,7 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                                 Text(topList.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
                                 const SizedBox(height: 7),
                                 Text('${app.sourceName(topList.source)} · ${topList.updateFrequency.isEmpty ? '${_songs.length} 首' : topList.updateFrequency}',
-                                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.45))),
+                                    style: TextStyle(fontSize: 11, color: context.neutral(0.45))),
                               ],
                             ),
                           ),
@@ -318,8 +322,8 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                         child: FilledButton.icon(
                           onPressed: _songs.isEmpty ? null : () => playSongList(context, _songs, 0),
                           style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
+                            backgroundColor: context.invertedFill,
+                            foregroundColor: context.invertedInk,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
@@ -365,13 +369,13 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                             style: TextStyle(
                               fontSize: index < 3 ? 14 : 11,
                               fontWeight: index < 3 ? FontWeight.w800 : FontWeight.w500,
-                              color: index < 3 ? AppColors.accent : Colors.white.withValues(alpha: 0.28),
+                              color: index < 3 ? AppColors.accent : context.neutral(0.28),
                             ),
                           ),
                         ),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.more_horiz_rounded, size: 19, color: Colors.white.withValues(alpha: 0.4)),
+                          icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
                           onPressed: () => showSongActions(context, song),
                         ),
                       ],

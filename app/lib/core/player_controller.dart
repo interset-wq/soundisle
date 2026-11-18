@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import 'api_client.dart';
+import 'permissions.dart';
 import 'models.dart';
 
 class LyricLine {
@@ -143,6 +144,9 @@ class PlayerController extends ChangeNotifier {
     errorText = null;
     onSongStarted?.call(song);
     notifyListeners();
+    // Ask for the notification permission in the context of an actual play
+    // action; a request at cold start is easy to miss (and some ROMs deny it).
+    unawaited(AppPermissions.requestNotificationPermission());
     try {
       final info = await api.play(song);
       // A second tap may have selected another song while this request was in
@@ -210,6 +214,22 @@ class PlayerController extends ChangeNotifier {
   }
 
   Future<void> pause() => player.pause();
+
+  /// Ends the session and removes the ongoing media notification.
+  Future<void> stop() async {
+    try {
+      await player.stop();
+    } catch (_) {}
+    current = null;
+    playInfo = null;
+    loading = false;
+    errorText = null;
+    rawLyric = '';
+    lyrics = [];
+    queue = [];
+    index = -1;
+    notifyListeners();
+  }
 
   Future<void> seek(Duration position) => player.seek(position);
 

@@ -43,7 +43,7 @@ class SongTile extends StatelessWidget {
     final api = app.api;
     final cover = api.coverUrl(song.cover, source: song.source);
     return Material(
-      color: selected ? Colors.white.withValues(alpha: 0.055) : Colors.transparent,
+      color: selected ? context.neutral(0.055) : Colors.transparent,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -101,12 +101,12 @@ class SongTile extends StatelessWidget {
                             song.album.isEmpty ? song.artist : '${song.artist} · ${song.album}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.44)),
+                            style: TextStyle(fontSize: 11.5, color: context.neutral(0.44)),
                           ),
                         ),
                         if (!dense && song.duration > 0) ...[
                           const SizedBox(width: 8),
-                          Text(song.durationText, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.32))),
+                          Text(song.durationText, style: TextStyle(fontSize: 11, color: context.neutral(0.32))),
                         ],
                       ],
                     ),
@@ -117,7 +117,7 @@ class SongTile extends StatelessWidget {
               trailing ??
                   IconButton(
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.more_horiz_rounded, size: 20, color: Colors.white.withValues(alpha: 0.45)),
+                    icon: Icon(Icons.more_horiz_rounded, size: 20, color: context.neutral(0.45)),
                     onPressed: () => showSongActions(context, song),
                   ),
             ],
@@ -182,7 +182,7 @@ Future<void> showSongActions(BuildContext context, Song song) async {
                             Text(song.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                             const SizedBox(height: 3),
                             Text('${song.artist}${song.album.isEmpty ? '' : ' · ${song.album}'}',
-                                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.45))),
+                                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: context.neutral(0.45))),
                           ],
                         ),
                       ),
@@ -426,7 +426,7 @@ class PlaylistCard extends StatelessWidget {
             Text(playlist.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3)),
             const SizedBox(height: 2),
             Text(playlist.creator.isEmpty ? app.sourceName(playlist.source) : playlist.creator,
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.4))),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: context.neutral(0.4))),
           ],
         ),
       ),
@@ -487,7 +487,7 @@ class CollectionCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(collection.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
-            Text('${collection.songs.length} 首歌曲', style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.4))),
+            Text('${collection.songs.length} 首歌曲', style: TextStyle(fontSize: 10.5, color: context.neutral(0.4))),
           ],
         ),
       ),
@@ -518,9 +518,9 @@ class TopListCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Colors.white.withValues(alpha: 0.07), Colors.white.withValues(alpha: 0.025)],
+              colors: [context.neutral(0.07), context.neutral(0.025)],
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            border: Border.all(color: context.subtleBorder),
           ),
           child: Row(
             children: [
@@ -533,7 +533,7 @@ class TopListCard extends StatelessWidget {
                     Text(topList.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     Text(topList.updateFrequency.isEmpty ? '${topList.trackCount} 首' : topList.updateFrequency,
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.4))),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: context.neutral(0.4))),
                     const SizedBox(height: 4),
                     SourceBadge(name: app.sourceName(topList.source), dense: true),
                   ],

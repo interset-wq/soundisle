@@ -268,10 +268,10 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                       labelStyle: TextStyle(
                         fontSize: 11.5,
                         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected ? Colors.white : Colors.white.withValues(alpha: 0.55),
+                        color: selected ? context.invertedFill : context.neutral(0.55),
                       ),
                       selectedColor: AppColors.accent.withValues(alpha: 0.24),
-                      backgroundColor: Colors.white.withValues(alpha: 0.045),
+                      backgroundColor: context.neutral(0.045),
                       side: BorderSide.none,
                       onSelected: (_) => _toggleSource(source.id),
                     );
@@ -282,8 +282,8 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               controller: _tabController,
               indicatorSize: TabBarIndicatorSize.label,
               indicatorColor: AppColors.accent,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white.withValues(alpha: 0.42),
+              labelColor: Theme.of(context).colorScheme.onSurface,
+              unselectedLabelColor: context.neutral(0.42),
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
               tabs: const [
@@ -323,9 +323,9 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
             child: Container(
               height: 46,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.075),
+                color: context.neutral(0.075),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(color: context.subtleBorder),
               ),
               child: TextField(
                 controller: _controller,
@@ -340,13 +340,13 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                   filled: false,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 13),
-                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: Colors.white.withValues(alpha: 0.45)),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20, color: context.neutral(0.45)),
                   suffixIcon: ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _controller,
                     builder: (context, value, _) {
                       if (value.text.isEmpty) return const SizedBox.shrink();
                       return IconButton(
-                        icon: Icon(Icons.close_rounded, size: 18, color: Colors.white.withValues(alpha: 0.45)),
+                        icon: Icon(Icons.close_rounded, size: 18, color: context.neutral(0.45)),
                         onPressed: () {
                           _controller.clear();
                           setState(() {
@@ -418,7 +418,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               const Spacer(),
               TextButton(
                 onPressed: _clearHistory,
-                child: Text('清空', style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.42))),
+                child: Text('清空', style: TextStyle(fontSize: 11.5, color: context.neutral(0.42))),
               ),
             ],
           ),
@@ -430,9 +430,9 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               for (final item in _history)
                 ActionChip(
                   label: Text(item),
-                  avatar: Icon(Icons.history_rounded, size: 14, color: Colors.white.withValues(alpha: 0.4)),
-                  labelStyle: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.72)),
-                  backgroundColor: Colors.white.withValues(alpha: 0.055),
+                  avatar: Icon(Icons.history_rounded, size: 14, color: context.neutral(0.4)),
+                  labelStyle: TextStyle(fontSize: 12, color: context.neutral(0.72)),
+                  backgroundColor: context.neutral(0.055),
                   side: BorderSide.none,
                   onPressed: () {
                     _controller.text = item;
@@ -453,8 +453,8 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               ActionChip(
                 label: Text(item),
                 labelStyle: const TextStyle(fontSize: 12),
-                backgroundColor: Colors.white.withValues(alpha: 0.05),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                backgroundColor: context.neutral(0.05),
+                side: BorderSide(color: context.subtleBorder),
                 onPressed: () {
                   _controller.text = item;
                   _submit(item);
@@ -470,7 +470,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
             gradient: LinearGradient(
               colors: [AppColors.accent.withValues(alpha: 0.14), AppColors.accentAlt.withValues(alpha: 0.06)],
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            border: Border.all(color: context.subtleBorder),
           ),
           child: Row(
             children: [
@@ -479,7 +479,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               Expanded(
                 child: Text(
                   '支持直接粘贴网易云、QQ 音乐、酷狗、酷我、B 站等平台链接',
-                  style: TextStyle(fontSize: 11.5, height: 1.45, color: Colors.white.withValues(alpha: 0.55)),
+                  style: TextStyle(fontSize: 11.5, height: 1.45, color: context.neutral(0.55)),
                 ),
               ),
             ],
@@ -509,7 +509,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
             child: Text(
               '找到 $total 首歌曲 · ${response.tookMs}ms',
-              style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.38)),
+              style: TextStyle(fontSize: 11.5, color: context.neutral(0.38)),
             ),
           ),
         ),
@@ -522,7 +522,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                   children: [
                     SourceBadge(name: group.name),
                     const SizedBox(width: 8),
-                    Text('${group.songs.length} 首', style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.32))),
+                    Text('${group.songs.length} 首', style: TextStyle(fontSize: 10.5, color: context.neutral(0.32))),
                     if (group.error.isNotEmpty) ...[const Text(' · ', style: TextStyle(fontSize: 10.5)), Flexible(child: Text(group.error, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Colors.orange.withValues(alpha: 0.7))))],
                   ],
                 ),
@@ -583,7 +583,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                 child: Text(
                   '找到 $total 个${type == 'album' ? '专辑' : '歌单'} · ${response.tookMs}ms',
-                  style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: 0.38)),
+                  style: TextStyle(fontSize: 11.5, color: context.neutral(0.38)),
                 ),
               ),
             ),
@@ -597,7 +597,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                         SourceBadge(name: group.name),
                         const SizedBox(width: 8),
                         Text('${group.playlists.length} 个${type == 'album' ? '专辑' : '歌单'}',
-                            style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.32))),
+                            style: TextStyle(fontSize: 10.5, color: context.neutral(0.32))),
                       ],
                     ),
                   ),

@@ -129,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 6),
                   Text(
                     _succeeded ? 'Cookie 已保存，正在返回…' : '扫码后请在手机端确认登录',
-                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.45)),
+                    style: TextStyle(fontSize: 12, color: context.neutral(0.45)),
                   ),
                   const SizedBox(height: 24),
                   Container(
@@ -184,19 +184,19 @@ class _LoginPageState extends State<LoginPage> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
+                      color: context.neutral(0.04),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                      border: Border.all(color: context.subtleBorder),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded, size: 16, color: Colors.white.withValues(alpha: 0.38)),
+                        Icon(Icons.info_outline_rounded, size: 16, color: context.neutral(0.38)),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             '二维码有效期约 3-5 分钟。扫码后如果手机端没有反应，可以返回设置页手动填写 Cookie。',
-                            style: TextStyle(fontSize: 11, height: 1.55, color: Colors.white.withValues(alpha: 0.42)),
+                            style: TextStyle(fontSize: 11, height: 1.55, color: context.neutral(0.42)),
                           ),
                         ),
                       ],

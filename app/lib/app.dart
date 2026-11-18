@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
 
+import 'core/app_state.dart';
 import 'ui/app_shell.dart';
 import 'ui/theme.dart';
 
@@ -9,13 +11,18 @@ class MusicApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = AppTheme.dark();
+    final app = context.watch<AppState>();
+    final mode = switch (app.settings.themeMode) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
     return MaterialApp(
       title: '声屿',
       debugShowCheckedModeBanner: false,
-      theme: theme,
-      darkTheme: theme,
-      themeMode: ThemeMode.dark,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: mode,
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       localizationsDelegates: const [

@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -38,7 +41,10 @@ class _TopListsPageState extends State<TopListsPage> {
     });
     try {
       final groups = await api.topLists(sources: [_source]);
-      final group = groups.firstWhere((e) => e.source == _source, orElse: () => const TopListGroup(source: '', name: ''));
+      final group = groups.firstWhere(
+        (e) => e.source == _source,
+        orElse: () => const TopListGroup(source: '', name: ''),
+      );
       if (!mounted) return;
       setState(() {
         _lists = group.lists;
@@ -63,7 +69,9 @@ class _TopListsPageState extends State<TopListsPage> {
       _source = sources.first.id;
     }
     return Scaffold(
-      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
+      bottomNavigationBar: player.hasSong
+          ? const SafeArea(top: false, child: MiniPlayer())
+          : null,
       appBar: AppBar(
         title: const Text('排行榜', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
@@ -86,7 +94,9 @@ class _TopListsPageState extends State<TopListsPage> {
                   labelStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? context.invertedFill : context.neutral(0.55),
+                    color: selected
+                        ? context.invertedFill
+                        : context.neutral(0.55),
                   ),
                   selectedColor: AppColors.accent.withValues(alpha: 0.25),
                   backgroundColor: context.neutral(0.05),
@@ -106,29 +116,40 @@ class _TopListsPageState extends State<TopListsPage> {
               child: _loading
                   ? const LoadingList(count: 8)
                   : _error != null
-                      ? EmptyState(
-                          icon: Icons.cloud_off_rounded,
-                          title: '加载失败',
-                          subtitle: _error,
-                          action: FilledButton(onPressed: _load, child: const Text('重试')),
-                        )
-                      : _lists.isEmpty
-                          ? const EmptyState(icon: Icons.leaderboard_outlined, title: '暂无榜单')
-                          : ListView.separated(
-                              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                              itemCount: _lists.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final topList = _lists[index];
-                                return _TopListRow(
-                                  topList: topList,
-                                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                                    builder: (_) => TopListSongsPage(topList: topList),
-                                  )),
-                                );
-                              },
+                  ? EmptyState(
+                      icon: Icons.cloud_off_rounded,
+                      title: '加载失败',
+                      subtitle: _error,
+                      action: FilledButton(
+                        onPressed: _load,
+                        child: const Text('重试'),
+                      ),
+                    )
+                  : _lists.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.leaderboard_outlined,
+                      title: '暂无榜单',
+                    )
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      itemCount: _lists.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final topList = _lists[index];
+                        return _TopListRow(
+                          topList: topList,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  TopListSongsPage(topList: topList),
                             ),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ),
         ],
@@ -157,27 +178,57 @@ class _TopListRow extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           child: Row(
             children: [
-              CoverArt(url: cover, size: 70, radius: 14, seed: topList.name, icon: Icons.leaderboard_rounded),
+              CoverArt(
+                url: cover,
+                size: 70,
+                radius: 14,
+                seed: topList.name,
+                icon: Icons.leaderboard_rounded,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(topList.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+                    Text(
+                      topList.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     if (topList.description.isNotEmpty) ...[
                       const SizedBox(height: 3),
-                      Text(topList.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: context.neutral(0.4), height: 1.35)),
+                      Text(
+                        topList.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.neutral(0.4),
+                          height: 1.35,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        SourceBadge(name: app.sourceName(topList.source), dense: true),
+                        SourceBadge(
+                          name: app.sourceName(topList.source),
+                          dense: true,
+                        ),
                         const SizedBox(width: 8),
-                        Text(topList.updateFrequency.isEmpty ? '${topList.trackCount} 首' : topList.updateFrequency,
-                            style: TextStyle(fontSize: 10, color: context.neutral(0.34))),
+                        Text(
+                          topList.updateFrequency.isEmpty
+                              ? '${topList.trackCount} 首'
+                              : topList.updateFrequency,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.neutral(0.34),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -219,7 +270,10 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
       _error = null;
     });
     try {
-      final songs = await api.toplistSongs(widget.topList.source, widget.topList.id);
+      final songs = await api.toplistSongs(
+        widget.topList.source,
+        widget.topList.id,
+      );
       if (!mounted) return;
       setState(() {
         _songs = songs;
@@ -241,11 +295,15 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
     final topList = widget.topList;
     final cover = app.api.coverUrl(topList.cover, source: topList.source);
     return Scaffold(
-      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
+      bottomNavigationBar: player.hasSong
+          ? const SafeArea(top: false, child: MiniPlayer())
+          : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
           slivers: [
             SliverAppBar(
               pinned: true,
@@ -256,15 +314,30 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                   fit: StackFit.expand,
                   children: [
                     if (cover.isNotEmpty)
-                      Opacity(opacity: 0.45, child: Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())),
+                      ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                        child: Opacity(
+                          opacity:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? 0.45
+                              : 0.3,
+                          child: CachedNetworkImage(
+                            imageUrl: cover,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => const SizedBox(),
+                          ),
+                        ),
+                      ),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.27),
-                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.93),
+                            Theme.of(context).scaffoldBackgroundColor
+                                .withValues(alpha: 0.27),
+                            Theme.of(context).scaffoldBackgroundColor
+                                .withValues(alpha: 0.93),
                             Theme.of(context).scaffoldBackgroundColor,
                           ],
                         ),
@@ -277,19 +350,44 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          CoverArt(url: cover, size: 120, radius: 20, seed: topList.name, icon: Icons.leaderboard_rounded),
+                          CoverArt(
+                            url: cover,
+                            size: 120,
+                            radius: 20,
+                            seed: topList.name,
+                            icon: Icons.leaderboard_rounded,
+                          ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('排行榜', style: TextStyle(fontSize: 10, letterSpacing: 1.5)),
+                                const Text(
+                                  '排行榜',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
                                 const SizedBox(height: 5),
-                                Text(topList.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)),
+                                Text(
+                                  topList.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 23,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                                 const SizedBox(height: 7),
-                                Text('${app.sourceName(topList.source)} · ${topList.updateFrequency.isEmpty ? '${_songs.length} 首' : topList.updateFrequency}',
-                                    style: TextStyle(fontSize: 11, color: context.neutral(0.45))),
+                                Text(
+                                  '${app.sourceName(topList.source)} · ${topList.updateFrequency.isEmpty ? '${_songs.length} 首' : topList.updateFrequency}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: context.neutral(0.45),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -301,7 +399,9 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
               ),
             ),
             if (_loading)
-              const SliverToBoxAdapter(child: SizedBox(height: 360, child: LoadingList(count: 8)))
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 360, child: LoadingList(count: 8)),
+              )
             else if (_error != null)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -309,7 +409,10 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                   icon: Icons.cloud_off_rounded,
                   title: '加载失败',
                   subtitle: _error,
-                  action: FilledButton(onPressed: _load, child: const Text('重试')),
+                  action: FilledButton(
+                    onPressed: _load,
+                    child: const Text('重试'),
+                  ),
                 ),
               )
             else ...[
@@ -320,15 +423,22 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: _songs.isEmpty ? null : () => playSongList(context, _songs, 0),
+                          onPressed: _songs.isEmpty
+                              ? null
+                              : () => playSongList(context, _songs, 0),
                           style: FilledButton.styleFrom(
                             backgroundColor: context.invertedFill,
                             foregroundColor: context.invertedInk,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: Text('播放全部 (${_songs.length})', style: const TextStyle(fontWeight: FontWeight.w700)),
+                          label: Text(
+                            '播放全部 (${_songs.length})',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -338,7 +448,10 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                             : () async {
                                 final result = await app.downloadSongs(_songs);
                                 if (context.mounted) {
-                                  showAppSnack(context, app.describeDownloadEnqueue(result));
+                                  showAppSnack(
+                                    context,
+                                    app.describeDownloadEnqueue(result),
+                                  );
                                 }
                               },
                         icon: const Icon(Icons.download_rounded),
@@ -358,6 +471,7 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                     index: index,
                     dense: true,
                     selected: player.current?.key == song.key,
+                    playing: player.playing && player.current?.key == song.key,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -368,14 +482,22 @@ class _TopListSongsPageState extends State<TopListSongsPage> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: index < 3 ? 14 : 11,
-                              fontWeight: index < 3 ? FontWeight.w800 : FontWeight.w500,
-                              color: index < 3 ? AppColors.accent : context.neutral(0.28),
+                              fontWeight: index < 3
+                                  ? FontWeight.w800
+                                  : FontWeight.w500,
+                              color: index < 3
+                                  ? AppColors.accent
+                                  : context.neutral(0.28),
                             ),
                           ),
                         ),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
+                          icon: Icon(
+                            Icons.more_horiz_rounded,
+                            size: 19,
+                            color: context.neutral(0.4),
+                          ),
                           onPressed: () => showSongActions(context, song),
                         ),
                       ],

@@ -12,7 +12,11 @@ import '../widgets/song_tile.dart';
 import 'toplists_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.onOpenSearch, required this.onOpenLibrary});
+  const HomePage({
+    super.key,
+    required this.onOpenSearch,
+    required this.onOpenLibrary,
+  });
 
   final VoidCallback onOpenSearch;
   final VoidCallback onOpenLibrary;
@@ -186,15 +190,23 @@ class _HomePageState extends State<HomePage> {
             queue: _hot,
             index: index,
             selected: player.current?.key == song.key,
+            playing: player.playing && player.current?.key == song.key,
             dense: true,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
+                Text(
+                  '${index + 1}',
+                  style: TextStyle(fontSize: 11, color: context.neutral(0.25)),
+                ),
                 const SizedBox(width: 2),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    size: 19,
+                    color: context.neutral(0.4),
+                  ),
                   onPressed: () => showSongActions(context, song),
                 ),
               ],
@@ -207,7 +219,8 @@ class _HomePageState extends State<HomePage> {
           title: '排行榜',
           subtitle: '实时更新的热门榜单',
           action: '全部榜单',
-          onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TopListsPage())),
+          onAction: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const TopListsPage())),
         ),
         SizedBox(
           height: 84,
@@ -221,9 +234,11 @@ class _HomePageState extends State<HomePage> {
               return TopListCard(
                 topList: topList,
                 width: 208,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => TopListSongsPage(topList: topList),
-                )),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TopListSongsPage(topList: topList),
+                  ),
+                ),
               );
             },
           ),
@@ -246,6 +261,7 @@ class _HomePageState extends State<HomePage> {
             dense: true,
             showSource: false,
             selected: player.current?.key == song.key,
+            playing: player.playing && player.current?.key == song.key,
           );
         }),
       ],
@@ -255,11 +271,15 @@ class _HomePageState extends State<HomePage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         slivers: [
           SliverToBoxAdapter(child: _hero(context, app)),
           if (_loading)
-            const SliverToBoxAdapter(child: SizedBox(height: 420, child: LoadingList(count: 6)))
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 420, child: LoadingList(count: 6)),
+            )
           else if (_error != null)
             SliverToBoxAdapter(
               child: SizedBox(
@@ -268,7 +288,10 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.wifi_off_rounded,
                   title: '加载失败',
                   subtitle: _error,
-                  action: FilledButton(onPressed: _load, child: const Text('重试')),
+                  action: FilledButton(
+                    onPressed: _load,
+                    child: const Text('重试'),
+                  ),
                 ),
               ),
             )
@@ -285,12 +308,15 @@ class _HomePageState extends State<HomePage> {
     final greeting = hour < 6
         ? '夜深了'
         : hour < 12
-            ? '早上好'
-            : hour < 18
-                ? '下午好'
-                : '晚上好';
+        ? '早上好'
+        : hour < 18
+        ? '下午好'
+        : '晚上好';
+    // Keep room for large system font sizes so the hero never overflows.
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final heroHeight = 230 + (textScale - 1).clamp(0.0, 0.8) * 120;
     return SizedBox(
-      height: 230,
+      height: heroHeight,
       child: Stack(
         children: [
           Positioned.fill(
@@ -300,8 +326,16 @@ class _HomePageState extends State<HomePage> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: isDark
-                      ? const [Color(0xFF241D4F), Color(0xFF12101F), Color(0xFF0A0A11)]
-                      : const [Color(0xFFE6E0FF), Color(0xFFF2EFFC), Color(0xFFF7F6FB)],
+                      ? const [
+                          Color(0xFF241D4F),
+                          Color(0xFF12101F),
+                          Color(0xFF0A0A11),
+                        ]
+                      : const [
+                          Color(0xFFE6E0FF),
+                          Color(0xFFF2EFFC),
+                          Color(0xFFF7F6FB),
+                        ],
                   stops: const [0, 0.55, 1],
                 ),
               ),
@@ -315,7 +349,12 @@ class _HomePageState extends State<HomePage> {
               height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.5), Colors.transparent]),
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.accent.withValues(alpha: 0.5),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
@@ -327,7 +366,12 @@ class _HomePageState extends State<HomePage> {
               height: 180,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [AppColors.accentAlt.withValues(alpha: 0.26), Colors.transparent]),
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.accentAlt.withValues(alpha: 0.26),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
@@ -345,49 +389,106 @@ class _HomePageState extends State<HomePage> {
                         height: 34,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(11),
-                          gradient: const LinearGradient(colors: [AppColors.accent, AppColors.accentAlt]),
+                          gradient: const LinearGradient(
+                            colors: [AppColors.accent, AppColors.accentAlt],
+                          ),
                         ),
-                        child: const Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 19),
+                        child: const Icon(
+                          Icons.graphic_eq_rounded,
+                          color: Colors.white,
+                          size: 19,
+                        ),
                       ),
                       const SizedBox(width: 10),
-                      const Text('声屿', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                      const Text(
+                        '声屿',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                       const Spacer(),
-                      Text('${app.localSongs.length} 首本地歌曲',
-                          style: TextStyle(fontSize: 10, color: context.neutral(0.35))),
+                      Text(
+                        '${app.localSongs.length} 首本地歌曲',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.neutral(0.35),
+                        ),
+                      ),
                     ],
                   ),
                   const Spacer(),
-                  Text(greeting, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1)),
+                  Text(
+                    greeting,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  Text('想听点什么？', style: TextStyle(fontSize: 14, color: context.neutral(0.48))),
+                  Text(
+                    '想听点什么？',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: context.neutral(0.48),
+                    ),
+                  ),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: widget.onOpenSearch,
-                    child: Container(
-                      height: 50,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: context.neutral(0.09),
+                  Semantics(
+                    button: true,
+                    label: '搜索歌曲、歌手、歌单或粘贴链接',
+                    child: Material(
+                      color: context.neutral(0.09),
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        onTap: widget.onOpenSearch,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: context.subtleBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search_rounded, size: 21, color: context.neutral(0.5)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text('搜索歌曲、歌手、歌单或粘贴链接',
-                                style: TextStyle(fontSize: 13, color: context.neutral(0.4))),
+                        child: Container(
+                          height: 50,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: context.subtleBorder),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: context.neutral(0.08),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('全网', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.search_rounded,
+                                size: 21,
+                                color: context.neutral(0.5),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '搜索歌曲、歌手、歌单或粘贴链接',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: context.neutral(0.4),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 9,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: context.neutral(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  '全网',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -403,7 +504,11 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _RecentSongCard extends StatelessWidget {
-  const _RecentSongCard({required this.song, required this.coverUrl, required this.onTap});
+  const _RecentSongCard({
+    required this.song,
+    required this.coverUrl,
+    required this.onTap,
+  });
 
   final Song song;
   final String coverUrl;
@@ -425,7 +530,10 @@ class _RecentSongCard extends StatelessWidget {
               song.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 2),
             Text(

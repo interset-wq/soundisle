@@ -21,8 +21,12 @@ class LibraryPage extends StatefulWidget {
   State<LibraryPage> createState() => _LibraryPageState();
 }
 
-class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 4, vsync: this);
+class _LibraryPageState extends State<LibraryPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 4,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -53,8 +57,14 @@ class _LibraryPageState extends State<LibraryPage> with SingleTickerProviderStat
           dividerColor: Colors.transparent,
           labelColor: Theme.of(context).colorScheme.onSurface,
           unselectedLabelColor: context.neutral(0.42),
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
           tabs: [
             Tab(text: '本地 ${app.localSongs.length}'),
             Tab(text: '喜欢 $favoriteCount'),
@@ -195,10 +205,18 @@ class _LocalTabState extends State<_LocalTab> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('删除 ${picked.length} 首本地文件'),
-        content: const Text('确定从设备中删除选中的歌曲吗？此操作无法撤销。\n\n只会删除 App 内的副本，系统 Music/声屿 中的文件会保留。'),
+        content: const Text(
+          '确定从设备中删除选中的歌曲吗？此操作无法撤销。\n\n只会删除 App 内的副本，系统 Music/声屿 中的文件会保留。',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
         ],
       ),
     );
@@ -252,25 +270,35 @@ class _LocalTabState extends State<_LocalTab> {
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
                       children: [
-                        FilledButton(onPressed: widget.onOpenSearch, child: const Text('去搜索音乐')),
+                        FilledButton(
+                          onPressed: widget.onOpenSearch,
+                          child: const Text('去搜索音乐'),
+                        ),
                         if (StorageBridge.supported)
                           OutlinedButton(
-                            onPressed: app.importingExported ? null : () => _importFromMusic(app),
-                            child: Text(app.importingExported ? '导入中…' : '从 Music/声屿 导入'),
+                            onPressed: app.importingExported
+                                ? null
+                                : () => _importFromMusic(app),
+                            child: Text(
+                              app.importingExported ? '导入中…' : '从 Music/声屿 导入',
+                            ),
                           ),
                       ],
                     ),
                   )
                 : songs.isEmpty
-                    ? EmptyState(
-                        icon: Icons.search_off_rounded,
-                        title: '没有匹配的歌曲',
-                        subtitle: '换个关键词，或清除搜索查看全部 ${allSongs.length} 首',
-                        action: OutlinedButton(onPressed: _clearSearch, child: const Text('清除搜索')),
-                      )
-                    : _groupMode == LocalGroupMode.none
-                        ? _songList(songs, player)
-                        : _groupedList(songs, player),
+                ? EmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: '没有匹配的歌曲',
+                    subtitle: '换个关键词，或清除搜索查看全部 ${allSongs.length} 首',
+                    action: OutlinedButton(
+                      onPressed: _clearSearch,
+                      child: const Text('清除搜索'),
+                    ),
+                  )
+                : _groupMode == LocalGroupMode.none
+                ? _songList(songs, player)
+                : _groupedList(songs, player),
           ),
           if (_selecting) _batchBar(app, player, picked),
         ],
@@ -291,14 +319,22 @@ class _LocalTabState extends State<_LocalTab> {
           isDense: true,
           hintText: '搜索歌名、歌手、专辑',
           hintStyle: TextStyle(fontSize: 12.5, color: context.neutral(0.32)),
-          prefixIcon: Icon(Icons.search_rounded, size: 18, color: context.neutral(0.38)),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: context.neutral(0.38),
+          ),
           prefixIconConstraints: const BoxConstraints(minWidth: 38),
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
                   tooltip: '清除',
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.close_rounded, size: 17, color: context.neutral(0.45)),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 17,
+                    color: context.neutral(0.45),
+                  ),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _query = '');
@@ -306,7 +342,10 @@ class _LocalTabState extends State<_LocalTab> {
                 ),
           filled: true,
           fillColor: context.neutral(0.05),
-          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 10,
+            horizontal: 12,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -350,7 +389,9 @@ class _LocalTabState extends State<_LocalTab> {
 
   Widget _songList(List<Song> songs, PlayerController player) {
     return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.only(bottom: 130),
       itemCount: songs.length,
       itemBuilder: (context, index) => _songTile(
@@ -366,7 +407,9 @@ class _LocalTabState extends State<_LocalTab> {
     final groups = groupLocalSongs(songs, _groupMode);
     final app = context.read<AppState>();
     return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: const EdgeInsets.only(bottom: 130),
       itemCount: groups.length,
       itemBuilder: (context, index) {
@@ -383,11 +426,17 @@ class _LocalTabState extends State<_LocalTab> {
                   : '${group.subtitle} · ${group.songs.length} 首',
               coverUrl: app.api.coverUrl(first.cover, source: first.source),
               total: group.songs.length,
-              selectedCount: group.songs.where((song) => _selected.contains(song.key)).length,
+              selectedCount: group.songs
+                  .where((song) => _selected.contains(song.key))
+                  .length,
               expanded: expanded,
               selecting: _selecting,
-              onTap: _selecting ? () => _toggleGroup(group) : () => _toggleExpanded(group),
-              onPlay: _selecting ? null : () => playSongList(context, group.songs, 0),
+              onTap: _selecting
+                  ? () => _toggleGroup(group)
+                  : () => _toggleExpanded(group),
+              onPlay: _selecting
+                  ? null
+                  : () => playSongList(context, group.songs, 0),
             ),
             if (expanded)
               for (var i = 0; i < group.songs.length; i++)
@@ -411,7 +460,9 @@ class _LocalTabState extends State<_LocalTab> {
     required PlayerController player,
     bool indented = false,
   }) {
-    final selected = _selecting ? _selected.contains(song.key) : player.current?.key == song.key;
+    final selected = _selecting
+        ? _selected.contains(song.key)
+        : player.current?.key == song.key;
     final tile = SongTile(
       song: song,
       queue: queue,
@@ -419,21 +470,31 @@ class _LocalTabState extends State<_LocalTab> {
       dense: true,
       showSource: false,
       selected: selected,
+      playing: !_selecting && player.playing && player.current?.key == song.key,
       onTap: _selecting ? () => _toggle(song) : null,
       onLongPress: _selecting ? null : () => _enterSelection(song),
       trailing: _selecting
           ? Icon(
-              selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
               size: 20,
               color: selected ? AppColors.accent : context.neutral(0.28),
             )
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
+                Text(
+                  '${index + 1}',
+                  style: TextStyle(fontSize: 11, color: context.neutral(0.25)),
+                ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    size: 19,
+                    color: context.neutral(0.4),
+                  ),
                   onPressed: () => showSongActions(context, song),
                 ),
               ],
@@ -451,23 +512,34 @@ class _LocalTabState extends State<_LocalTab> {
       subtitle: searching
           ? '共 ${allSongs.length} 首本地歌曲'
           : StorageBridge.supported
-              ? '${allSongs.length} 首歌曲 · 副本在系统 Music/声屿'
-              : (app.settings.downloadDir.isEmpty ? '${allSongs.length} 首歌曲' : app.settings.downloadDir),
+          ? '${allSongs.length} 首歌曲 · 副本在系统 Music/声屿'
+          : (app.settings.downloadDir.isEmpty
+                ? '${allSongs.length} 首歌曲'
+                : app.settings.downloadDir),
       actions: [
         if (allSongs.isNotEmpty)
           IconButton(
             tooltip: _searching ? '关闭搜索' : '搜索本地音乐',
             visualDensity: VisualDensity.compact,
             onPressed: _toggleSearch,
-            icon: Icon(_searching ? Icons.search_off_rounded : Icons.search_rounded, size: 20),
+            icon: Icon(
+              _searching ? Icons.search_off_rounded : Icons.search_rounded,
+              size: 20,
+            ),
           ),
         if (StorageBridge.supported)
           IconButton(
             tooltip: '从 Music/声屿 导入',
             visualDensity: VisualDensity.compact,
-            onPressed: app.importingExported ? null : () => _importFromMusic(app),
+            onPressed: app.importingExported
+                ? null
+                : () => _importFromMusic(app),
             icon: app.importingExported
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.library_music_rounded, size: 20),
           ),
         IconButton(
@@ -478,13 +550,22 @@ class _LocalTabState extends State<_LocalTab> {
               : () async {
                   try {
                     await app.rescanLibrary();
-                    if (mounted) showAppSnack(context, '扫描完成，共 ${app.localSongs.length} 首');
+                    if (mounted) {
+                      showAppSnack(
+                        context,
+                        '扫描完成，共 ${app.localSongs.length} 首',
+                      );
+                    }
                   } catch (error) {
                     if (mounted) showAppSnack(context, '$error');
                   }
                 },
           icon: app.scanning
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Icon(Icons.refresh_rounded, size: 20),
         ),
         if (allSongs.isNotEmpty && !_searching)
@@ -498,13 +579,21 @@ class _LocalTabState extends State<_LocalTab> {
           IconButton(
             tooltip: '播放全部',
             onPressed: () => playSongList(context, visible, 0),
-            icon: const Icon(Icons.play_circle_fill_rounded, size: 28, color: AppColors.accent),
+            icon: const Icon(
+              Icons.play_circle_fill_rounded,
+              size: 28,
+              color: AppColors.accent,
+            ),
           ),
       ],
     );
   }
 
-  Widget _selectionToolbar(List<Song> songs, List<Song> picked, bool allSelected) {
+  Widget _selectionToolbar(
+    List<Song> songs,
+    List<Song> picked,
+    bool allSelected,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
       child: Row(
@@ -525,12 +614,12 @@ class _LocalTabState extends State<_LocalTab> {
             onPressed: songs.isEmpty
                 ? null
                 : () => setState(() {
-                      if (allSelected) {
-                        _selected.clear();
-                      } else {
-                        _selected.addAll(songs.map((song) => song.key));
-                      }
-                    }),
+                    if (allSelected) {
+                      _selected.clear();
+                    } else {
+                      _selected.addAll(songs.map((song) => song.key));
+                    }
+                  }),
             child: Text(allSelected ? '取消全选' : '全选'),
           ),
         ],
@@ -540,58 +629,78 @@ class _LocalTabState extends State<_LocalTab> {
 
   Widget _batchBar(AppState app, PlayerController player, List<Song> picked) {
     final enabled = picked.isNotEmpty;
-    return Material(
-      color: AppColors.darkSurface,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: _BatchAction(
-                  icon: Icons.play_arrow_rounded,
-                  label: '播放',
-                  onTap: enabled
-                      ? () {
-                          final songs = List<Song>.of(picked);
-                          _exitSelection();
-                          playSongList(context, songs, 0);
-                        }
-                      : null,
-                ),
-              ),
-              Expanded(
-                child: _BatchAction(
-                  icon: Icons.queue_play_next_rounded,
-                  label: '加入队列',
-                  onTap: enabled
-                      ? () {
-                          for (final song in picked) {
-                            player.addToQueue(song);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: context.subtleBorder)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _BatchAction(
+                    icon: Icons.play_arrow_rounded,
+                    label: '播放',
+                    onTap: enabled
+                        ? () {
+                            final songs = List<Song>.of(picked);
+                            _exitSelection();
+                            playSongList(context, songs, 0);
                           }
-                          _exitSelection();
-                          showAppSnack(context, '已加入 ${picked.length} 首到播放队列');
-                        }
-                      : null,
+                        : null,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _BatchAction(
-                  icon: Icons.playlist_add_rounded,
-                  label: '加入歌单',
-                  onTap: enabled ? () => showAddToCollectionSongs(context, picked) : null,
+                Expanded(
+                  child: _BatchAction(
+                    icon: Icons.queue_play_next_rounded,
+                    label: '加入队列',
+                    onTap: enabled
+                        ? () {
+                            for (final song in picked) {
+                              player.addToQueue(song);
+                            }
+                            _exitSelection();
+                            showAppSnack(
+                              context,
+                              '已加入 ${picked.length} 首到播放队列',
+                            );
+                          }
+                        : null,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _BatchAction(
-                  icon: Icons.delete_outline_rounded,
-                  label: '删除',
-                  color: Colors.redAccent,
-                  onTap: enabled ? () => _deleteSelected(app, player, picked) : null,
+                Expanded(
+                  child: _BatchAction(
+                    icon: Icons.playlist_add_rounded,
+                    label: '加入歌单',
+                    onTap: enabled
+                        ? () => showAddToCollectionSongs(context, picked)
+                        : null,
+                  ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: _BatchAction(
+                    icon: Icons.delete_outline_rounded,
+                    label: '删除',
+                    color: Colors.redAccent,
+                    onTap: enabled
+                        ? () => _deleteSelected(app, player, picked)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -627,7 +736,11 @@ class _ModeChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: selected ? AppColors.accent : context.neutral(0.45)),
+              Icon(
+                icon,
+                size: 14,
+                color: selected ? AppColors.accent : context.neutral(0.45),
+              ),
               const SizedBox(width: 5),
               Text(
                 label,
@@ -691,7 +804,9 @@ class _GroupHeader extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
-                        color: selecting && selectedCount > 0 ? AppColors.accent : null,
+                        color: selecting && selectedCount > 0
+                            ? AppColors.accent
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -699,7 +814,10 @@ class _GroupHeader extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10.5, color: context.neutral(0.4)),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: context.neutral(0.4),
+                      ),
                     ),
                   ],
                 ),
@@ -711,10 +829,12 @@ class _GroupHeader extends StatelessWidget {
                     selectedCount == 0
                         ? Icons.radio_button_unchecked_rounded
                         : (selectedCount == total
-                            ? Icons.check_circle_rounded
-                            : Icons.remove_circle_outline_rounded),
+                              ? Icons.check_circle_rounded
+                              : Icons.remove_circle_outline_rounded),
                     size: 22,
-                    color: selectedCount == 0 ? context.neutral(0.28) : AppColors.accent,
+                    color: selectedCount == 0
+                        ? context.neutral(0.28)
+                        : AppColors.accent,
                   ),
                 )
               else ...[
@@ -722,10 +842,16 @@ class _GroupHeader extends StatelessWidget {
                   tooltip: '播放这组',
                   visualDensity: VisualDensity.compact,
                   onPressed: onPlay,
-                  icon: const Icon(Icons.play_circle_fill_rounded, size: 26, color: AppColors.accent),
+                  icon: const Icon(
+                    Icons.play_circle_fill_rounded,
+                    size: 26,
+                    color: AppColors.accent,
+                  ),
                 ),
                 Icon(
-                  expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                  expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
                   size: 20,
                   color: context.neutral(0.35),
                 ),
@@ -755,7 +881,9 @@ class _BatchAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final tint = enabled ? (color ?? context.invertedFill) : context.neutral(0.24);
+    final tint = enabled
+        ? (color ?? context.invertedFill)
+        : context.neutral(0.24);
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -801,7 +929,11 @@ class _FavoritesTab extends StatelessWidget {
               IconButton(
                 tooltip: '播放全部',
                 onPressed: () => playSongList(context, songs, 0),
-                icon: const Icon(Icons.play_circle_fill_rounded, size: 28, color: AppColors.accent),
+                icon: const Icon(
+                  Icons.play_circle_fill_rounded,
+                  size: 28,
+                  color: AppColors.accent,
+                ),
               ),
           ],
         ),
@@ -824,13 +956,25 @@ class _FavoritesTab extends StatelessWidget {
                       index: index,
                       dense: true,
                       selected: player.current?.key == song.key,
+                      playing:
+                          player.playing && player.current?.key == song.key,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
+                          Text(
+                            '${index + 1}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.neutral(0.25),
+                            ),
+                          ),
                           IconButton(
                             visualDensity: VisualDensity.compact,
-                            icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
+                            icon: Icon(
+                              Icons.more_horiz_rounded,
+                              size: 19,
+                              color: context.neutral(0.4),
+                            ),
                             onPressed: () => showSongActions(context, song),
                           ),
                         ],
@@ -858,12 +1002,12 @@ class _CollectionsTab extends StatelessWidget {
         final columns = width >= 1000
             ? 6
             : width >= 760
-                ? 5
-                : width >= 560
-                    ? 4
-                    : width >= 400
-                        ? 3
-                        : 2;
+            ? 5
+            : width >= 560
+            ? 4
+            : width >= 400
+            ? 3
+            : 2;
         const spacing = 14.0;
         final tileWidth = (width - 32 - spacing * (columns - 1)) / columns;
         final collections = app.collections;
@@ -876,7 +1020,13 @@ class _CollectionsTab extends StatelessWidget {
                 child: Row(
                   children: [
                     const Expanded(
-                      child: Text('我的歌单', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      child: Text(
+                        '我的歌单',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                     TextButton.icon(
                       onPressed: () async {
@@ -900,26 +1050,27 @@ class _CollectionsTab extends StatelessWidget {
                   mainAxisSpacing: 18,
                   childAspectRatio: tileWidth / (tileWidth + 52),
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index == collections.length) {
-                      return _NewCollectionCard(onTap: () async {
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  if (index == collections.length) {
+                    return _NewCollectionCard(
+                      onTap: () async {
                         final name = await askCollectionName(context);
                         if (name == null || name.trim().isEmpty) return;
                         await app.createCollection(name.trim());
-                      });
-                    }
-                    final collection = collections[index];
-                    return CollectionCard(
-                      collection: collection,
-                      width: tileWidth,
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => CollectionPage(id: collection.id),
-                      )),
+                      },
                     );
-                  },
-                  childCount: collections.length + 1,
-                ),
+                  }
+                  final collection = collections[index];
+                  return CollectionCard(
+                    collection: collection,
+                    width: tileWidth,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CollectionPage(id: collection.id),
+                      ),
+                    ),
+                  );
+                }, childCount: collections.length + 1),
               ),
             ),
           ],
@@ -949,11 +1100,18 @@ class _NewCollectionCard extends StatelessWidget {
                 color: context.neutral(0.04),
                 border: Border.all(color: context.subtleBorder),
               ),
-              child: Icon(Icons.add_rounded, size: 30, color: context.neutral(0.32)),
+              child: Icon(
+                Icons.add_rounded,
+                size: 30,
+                color: context.neutral(0.32),
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          Text('新建歌单', style: TextStyle(fontSize: 12, color: context.neutral(0.5))),
+          Text(
+            '新建歌单',
+            style: TextStyle(fontSize: 12, color: context.neutral(0.5)),
+          ),
         ],
       ),
     );
@@ -967,9 +1125,16 @@ class _DownloadsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final tasks = app.downloads;
-    final active = tasks.where((e) => e.status == 'downloading' || e.status == 'waiting').length;
+    final active = tasks
+        .where((e) => e.status == 'downloading' || e.status == 'waiting')
+        .length;
     final missingAssets = tasks
-        .where((e) => e.status == 'done' && !e.repairing && (e.lyricPath.isEmpty || e.coverPath.isEmpty))
+        .where(
+          (e) =>
+              e.status == 'done' &&
+              !e.repairing &&
+              (e.lyricPath.isEmpty || e.coverPath.isEmpty),
+        )
         .length;
     return RefreshIndicator(
       onRefresh: app.refreshDownloads,
@@ -978,7 +1143,9 @@ class _DownloadsTab extends StatelessWidget {
           _ListToolbar(
             icon: Icons.download_rounded,
             title: active > 0 ? '正在下载 $active 个任务' : '下载任务',
-            subtitle: StorageBridge.supported ? '完成后自动保存到系统 Music/声屿' : app.settings.downloadDir,
+            subtitle: StorageBridge.supported
+                ? '完成后自动保存到系统 Music/声屿'
+                : app.settings.downloadDir,
             actions: [
               if (missingAssets > 0)
                 IconButton(
@@ -1019,11 +1186,14 @@ class _DownloadsTab extends StatelessWidget {
                     subtitle: '歌曲、专辑和歌单都可以一键下载到本地',
                   )
                 : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 130),
                     itemCount: tasks.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 2),
-                    itemBuilder: (context, index) => _DownloadTile(task: tasks[index]),
+                    itemBuilder: (context, index) =>
+                        _DownloadTile(task: tasks[index]),
                   ),
           ),
         ],
@@ -1051,7 +1221,13 @@ class _DownloadTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: local == null ? null : () => playSongList(context, app.localSongs, app.localSongs.indexWhere((e) => e.key == local.key)),
+        onTap: local == null
+            ? null
+            : () => playSongList(
+                context,
+                app.localSongs,
+                app.localSongs.indexWhere((e) => e.key == local.key),
+              ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           child: Row(
@@ -1077,20 +1253,35 @@ class _DownloadTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    Text(
+                      task.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        SourceBadge(name: app.sourceName(task.source), dense: true),
+                        SourceBadge(
+                          name: app.sourceName(task.source),
+                          dense: true,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            task.artist.isEmpty ? status : '${task.artist} · $status',
+                            task.artist.isEmpty
+                                ? status
+                                : '${task.artist} · $status',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
-                              color: task.status == 'failed' ? Colors.redAccent.withValues(alpha: 0.8) : context.neutral(0.42),
+                              color: task.status == 'failed'
+                                  ? Colors.redAccent.withValues(alpha: 0.8)
+                                  : context.neutral(0.42),
                             ),
                           ),
                         ),
@@ -1111,25 +1302,36 @@ class _DownloadTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.folder_rounded, size: 11, color: Color(0xFF54D68C)),
+                          const Icon(
+                            Icons.folder_rounded,
+                            size: 11,
+                            color: Color(0xFF54D68C),
+                          ),
                           const SizedBox(width: 3),
                           Expanded(
                             child: Text(
                               '已保存到 $exported',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 10, color: Color(0xFF54D68C)),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF54D68C),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ] else if (task.status == 'done' && exportError != null) ...[
+                    ] else if (task.status == 'done' &&
+                        exportError != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         '保存到系统音乐库失败：$exportError',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 10, color: Colors.orangeAccent.withValues(alpha: 0.85)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orangeAccent.withValues(alpha: 0.85),
+                        ),
                       ),
                     ],
                   ],
@@ -1176,9 +1378,13 @@ class _DownloadTile extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 tooltip: '移除任务',
                 icon: Icon(
-                  task.status == 'done' ? Icons.check_circle_rounded : Icons.close_rounded,
+                  task.status == 'done'
+                      ? Icons.check_circle_rounded
+                      : Icons.close_rounded,
                   size: task.status == 'done' ? 20 : 18,
-                  color: task.status == 'done' ? const Color(0xFF54D68C) : context.neutral(0.35),
+                  color: task.status == 'done'
+                      ? const Color(0xFF54D68C)
+                      : context.neutral(0.35),
                 ),
                 onPressed: () => app.removeDownload(task.id),
               ),
@@ -1255,9 +1461,23 @@ class _ListToolbar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: context.neutral(0.38))),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: context.neutral(0.38),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1281,8 +1501,14 @@ Future<String?> askCollectionName(BuildContext context) async {
         onSubmitted: (value) => Navigator.pop(context, value),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-        FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('创建')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, controller.text),
+          child: const Text('创建'),
+        ),
       ],
     ),
   );

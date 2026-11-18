@@ -10,7 +10,12 @@ import '../../core/api_client.dart';
 import '../theme.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.source, required this.name, this.type = ''});
+  const LoginPage({
+    super.key,
+    required this.source,
+    required this.name,
+    this.type = '',
+  });
 
   final String source;
   final String name;
@@ -80,7 +85,11 @@ class _LoginPageState extends State<LoginPage> {
     if (_checking || session == null || _succeeded) return;
     _checking = true;
     try {
-      final status = await context.read<ApiClient>().loginCheck(widget.source, session.key, type: widget.type);
+      final status = await context.read<ApiClient>().loginCheck(
+        widget.source,
+        session.key,
+        type: widget.type,
+      );
       if (!mounted) return;
       setState(() => _status = status);
       if (status.success) {
@@ -102,7 +111,10 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.name} 扫码登录', style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(
+          '${widget.name} 扫码登录',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
       body: SafeArea(
         child: Center(
@@ -117,30 +129,61 @@ class _LoginPageState extends State<LoginPage> {
                     height: 58,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(colors: [AppColors.accent, AppColors.accentAlt]),
+                      gradient: const LinearGradient(
+                        colors: [AppColors.accent, AppColors.accentAlt],
+                      ),
                     ),
-                    child: const Icon(Icons.qr_code_scanner_rounded, size: 30, color: Colors.white),
+                    child: const Icon(
+                      Icons.qr_code_scanner_rounded,
+                      size: 30,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   Text(
                     _succeeded ? '登录成功' : '使用 ${widget.name} App 扫码',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     _succeeded ? 'Cookie 已保存，正在返回…' : '扫码后请在手机端确认登录',
-                    style: TextStyle(fontSize: 12, color: context.neutral(0.45)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.neutral(0.45),
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  Container(
-                    width: 272,
-                    height: 272,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 12))],
-                    ),
-                    child: Center(child: _qrContent()),
+                  Builder(
+                    builder: (context) {
+                      final dark =
+                          Theme.of(context).brightness == Brightness.dark;
+                      return Container(
+                        width: 272,
+                        height: 272,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.black.withValues(
+                              alpha: dark ? 0 : 0.06,
+                            ),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: dark ? 0.35 : 0.10,
+                              ),
+                              blurRadius: 30,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: Center(child: _qrContent()),
+                      );
+                    },
                   ),
                   const SizedBox(height: 22),
                   if (_succeeded)
@@ -160,19 +203,24 @@ class _LoginPageState extends State<LoginPage> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, height: 1.5, color: Colors.redAccent.withValues(alpha: 0.85)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: Colors.redAccent.withValues(alpha: 0.85),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       OutlinedButton.icon(
                         onPressed: _creating ? null : _create,
                         icon: const Icon(Icons.refresh_rounded, size: 17),
                         label: const Text('刷新二维码'),
                       ),
-                      const SizedBox(width: 12),
                       OutlinedButton.icon(
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.keyboard_rounded, size: 17),
@@ -191,12 +239,20 @@ class _LoginPageState extends State<LoginPage> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline_rounded, size: 16, color: context.neutral(0.38)),
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: context.neutral(0.38),
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             '二维码有效期约 3-5 分钟。扫码后如果手机端没有反应，可以返回设置页手动填写 Cookie。',
-                            style: TextStyle(fontSize: 11, height: 1.55, color: context.neutral(0.42)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.55,
+                              color: context.neutral(0.42),
+                            ),
                           ),
                         ),
                       ],
@@ -216,11 +272,19 @@ class _LoginPageState extends State<LoginPage> {
       return const CircularProgressIndicator(strokeWidth: 2.4);
     }
     if (_succeeded) {
-      return const Icon(Icons.check_rounded, size: 96, color: Color(0xFF0A0A11));
+      return const Icon(
+        Icons.check_rounded,
+        size: 96,
+        color: Color(0xFF0A0A11),
+      );
     }
     final session = _session;
     if (session == null) {
-      return Icon(Icons.qr_code_2_rounded, size: 96, color: Colors.black.withValues(alpha: 0.18));
+      return Icon(
+        Icons.qr_code_2_rounded,
+        size: 96,
+        color: Colors.black.withValues(alpha: 0.18),
+      );
     }
     final image = session.imageUrl;
     if (image.startsWith('data:image')) {
@@ -230,7 +294,13 @@ class _LoginPageState extends State<LoginPage> {
           final bytes = base64Decode(image.substring(comma + 1));
           return Padding(
             padding: const EdgeInsets.all(14),
-            child: Image.memory(bytes, width: 244, height: 244, fit: BoxFit.contain, gaplessPlayback: true),
+            child: Image.memory(
+              bytes,
+              width: 244,
+              height: 244,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            ),
           );
         } catch (_) {
           // fall through to QR rendering
@@ -245,7 +315,8 @@ class _LoginPageState extends State<LoginPage> {
           width: 244,
           height: 244,
           fit: BoxFit.contain,
-          placeholder: (_, _) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          placeholder: (_, _) =>
+              const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           errorWidget: (_, _, _) => _qrFromUrl(session.url),
         ),
       );
@@ -260,7 +331,11 @@ class _LoginPageState extends State<LoginPage> {
         child: Text(
           '无法生成二维码\n请手动填写 Cookie',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 12, height: 1.5, color: Colors.black.withValues(alpha: 0.55)),
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.5,
+            color: Colors.black.withValues(alpha: 0.55),
+          ),
         ),
       );
     }
@@ -270,8 +345,14 @@ class _LoginPageState extends State<LoginPage> {
       size: 244,
       padding: const EdgeInsets.all(14),
       backgroundColor: Colors.white,
-      eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
-      dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
+      eyeStyle: const QrEyeStyle(
+        eyeShape: QrEyeShape.square,
+        color: Colors.black,
+      ),
+      dataModuleStyle: const QrDataModuleStyle(
+        dataModuleShape: QrDataModuleShape.square,
+        color: Colors.black,
+      ),
     );
   }
 
@@ -317,7 +398,11 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.icon, required this.color, required this.text});
+  const _StatusPill({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
 
   final IconData icon;
   final Color color;
@@ -343,7 +428,11 @@ class _StatusPill extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],

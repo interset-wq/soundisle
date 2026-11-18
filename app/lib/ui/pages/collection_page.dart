@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -35,14 +38,20 @@ class CollectionPage extends StatelessWidget {
     }
     final songs = collection.songs;
     final first = songs.isNotEmpty ? songs.first : null;
-    final cover = first == null ? '' : app.api.coverUrl(first.cover, source: first.source);
+    final cover = first == null
+        ? ''
+        : app.api.coverUrl(first.cover, source: first.source);
 
     return Scaffold(
-      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
+      bottomNavigationBar: player.hasSong
+          ? const SafeArea(top: false, child: MiniPlayer())
+          : null,
       body: RefreshIndicator(
         onRefresh: app.refreshCollections,
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
           slivers: [
             SliverAppBar(
               pinned: true,
@@ -60,7 +69,20 @@ class CollectionPage extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     if (cover.isNotEmpty)
-                      Opacity(opacity: 0.24, child: Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())),
+                      ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                        child: Opacity(
+                          opacity:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? 0.3
+                              : 0.22,
+                          child: CachedNetworkImage(
+                            imageUrl: cover,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => const SizedBox(),
+                          ),
+                        ),
+                      ),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -85,7 +107,9 @@ class CollectionPage extends StatelessWidget {
                             size: 120,
                             radius: 22,
                             seed: collection.name,
-                            icon: collection.isFavorites ? Icons.favorite_rounded : Icons.queue_music_rounded,
+                            icon: collection.isFavorites
+                                ? Icons.favorite_rounded
+                                : Icons.queue_music_rounded,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -95,16 +119,31 @@ class CollectionPage extends StatelessWidget {
                               children: [
                                 Text(
                                   collection.isFavorites ? '我喜欢的音乐' : '我的歌单',
-                                  style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: context.neutral(0.5)),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    letterSpacing: 1.5,
+                                    color: context.neutral(0.5),
+                                  ),
                                 ),
                                 const SizedBox(height: 5),
-                                Text(collection.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, height: 1.15)),
+                                Text(
+                                  collection.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 23,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.15,
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
-                                Text('${songs.length} 首歌曲',
-                                    style: TextStyle(fontSize: 11.5, color: context.neutral(0.48))),
+                                Text(
+                                  '${songs.length} 首歌曲',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: context.neutral(0.48),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -122,20 +161,29 @@ class CollectionPage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: songs.isEmpty ? null : () => playSongList(context, songs, 0),
+                        onPressed: songs.isEmpty
+                            ? null
+                            : () => playSongList(context, songs, 0),
                         style: FilledButton.styleFrom(
                           backgroundColor: context.invertedFill,
                           foregroundColor: context.invertedInk,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                         icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text('播放全部 (${songs.length})', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        label: Text(
+                          '播放全部 (${songs.length})',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     IconButton.filledTonal(
-                      onPressed: songs.isEmpty ? null : () => _shuffle(context, songs),
+                      onPressed: songs.isEmpty
+                          ? null
+                          : () => _shuffle(context, songs),
                       icon: const Icon(Icons.shuffle_rounded),
                       tooltip: '随机播放',
                     ),
@@ -147,7 +195,9 @@ class CollectionPage extends StatelessWidget {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: EmptyState(
-                  icon: collection.isFavorites ? Icons.favorite_border_rounded : Icons.playlist_add_rounded,
+                  icon: collection.isFavorites
+                      ? Icons.favorite_border_rounded
+                      : Icons.playlist_add_rounded,
                   title: collection.isFavorites ? '还没有喜欢的歌曲' : '歌单还是空的',
                   subtitle: '在歌曲菜单中选择「喜欢」或「添加到歌单」',
                 ),
@@ -163,15 +213,27 @@ class CollectionPage extends StatelessWidget {
                     index: index,
                     dense: true,
                     selected: player.current?.key == song.key,
+                    playing: player.playing && player.current?.key == song.key,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
+                        Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.neutral(0.25),
+                          ),
+                        ),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.remove_circle_outline_rounded, size: 18, color: context.neutral(0.35)),
+                          icon: Icon(
+                            Icons.remove_circle_outline_rounded,
+                            size: 18,
+                            color: context.neutral(0.35),
+                          ),
                           tooltip: '从歌单移除',
-                          onPressed: () => app.removeFromCollection(collection.id, song),
+                          onPressed: () =>
+                              app.removeFromCollection(collection.id, song),
                         ),
                       ],
                     ),
@@ -190,7 +252,11 @@ class CollectionPage extends StatelessWidget {
     await playSongList(context, list, 0);
   }
 
-  Future<void> _showActions(BuildContext context, AppState app, Collection collection) async {
+  Future<void> _showActions(
+    BuildContext context,
+    AppState app,
+    Collection collection,
+  ) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -222,8 +288,14 @@ class CollectionPage extends StatelessWidget {
             ),
             if (!collection.isFavorites)
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                title: const Text('删除歌单', style: TextStyle(color: Colors.redAccent)),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                ),
+                title: const Text(
+                  '删除歌单',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
                 onTap: () async {
                   Navigator.pop(sheet);
                   final confirmed = await showDialog<bool>(
@@ -232,8 +304,14 @@ class CollectionPage extends StatelessWidget {
                       title: const Text('删除歌单'),
                       content: Text('确定删除「${collection.name}」吗？'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('取消'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('删除'),
+                        ),
                       ],
                     ),
                   );
@@ -262,8 +340,14 @@ class CollectionPage extends StatelessWidget {
           onSubmitted: (value) => Navigator.pop(context, value),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('保存')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );

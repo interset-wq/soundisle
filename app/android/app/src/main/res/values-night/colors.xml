@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches AppColors.darkBackground for dark-mode launches. -->
+    <color name="launch_background">#FF0A0A11</color>
+</resources>

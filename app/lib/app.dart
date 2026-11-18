@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,17 @@ class MusicApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: mode,
+      // Status/navigation bar icons follow the active theme, including on
+      // pages without an AppBar.
+      builder: themedSystemUi,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+        },
+      ),
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       localizationsDelegates: const [

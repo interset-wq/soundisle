@@ -282,6 +282,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               controller: _tabController,
               indicatorSize: TabBarIndicatorSize.label,
               indicatorColor: AppColors.accent,
+              dividerColor: Colors.transparent,
               labelColor: Theme.of(context).colorScheme.onSurface,
               unselectedLabelColor: context.neutral(0.42),
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -363,16 +364,25 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _submit(_controller.text),
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFF9C8FFF)]),
+          Semantics(
+            button: true,
+            label: '搜索',
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(15),
+              child: Ink(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFF9C8FFF)]),
+                ),
+                child: InkWell(
+                  onTap: () => _submit(_controller.text),
+                  borderRadius: BorderRadius.circular(15),
+                  child: const Icon(Icons.arrow_forward_rounded, size: 20, color: Colors.white),
+                ),
               ),
-              child: const Icon(Icons.arrow_forward_rounded, size: 20),
             ),
           ),
         ],

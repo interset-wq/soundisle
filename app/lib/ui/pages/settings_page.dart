@@ -225,6 +225,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: SizedBox(
                     width: double.infinity,
                     child: SegmentedButton<String>(
+                      expandedInsets: EdgeInsets.zero,
                       segments: const [
                         ButtonSegment(
                           value: 'system',
@@ -281,13 +282,21 @@ class _SettingsPageState extends State<SettingsPage> {
                       _notificationStatus!.enabled
                           ? Icons.notifications_active_rounded
                           : Icons.notifications_off_rounded,
+                      color: _notificationColor(context),
                     ),
                     title: const Text('播放通知'),
                     subtitle: Text(_notificationStatus!.label),
-                    trailing: IconButton(
-                      tooltip: '刷新通知状态',
-                      icon: const Icon(Icons.refresh_rounded, size: 20),
-                      onPressed: _refreshNotificationStatus,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: '刷新通知状态',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.refresh_rounded, size: 20),
+                          onPressed: _refreshNotificationStatus,
+                        ),
+                        const Icon(Icons.chevron_right_rounded, size: 20),
+                      ],
                     ),
                     onTap: AppPermissions.openChannelSettings,
                   ),
@@ -296,6 +305,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     leading: const Icon(Icons.notification_add_rounded),
                     title: const Text('发送测试通知'),
                     subtitle: const Text('不播放音乐，只验证通知权限与渠道是否正常'),
+                    trailing: const Icon(Icons.send_rounded, size: 18),
                     onTap: _sendTestNotification,
                   ),
                 ListTile(
@@ -324,17 +334,40 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _sectionTitle(String title, String? subtitle) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
-          if (subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(fontSize: 10.5, color: context.neutral(0.34))),
-          ],
+          Container(
+            width: 3,
+            height: 13,
+            margin: const EdgeInsets.only(top: 2, right: 8),
+            decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(2)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: TextStyle(fontSize: 10.5, color: context.neutral(0.34))),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  /// Green when the media notification can be posted, amber when the channel
+  /// is muted, red when the app or permission blocks notifications.
+  Color _notificationColor(BuildContext context) {
+    final status = _notificationStatus;
+    if (status == null) return context.neutral(0.4);
+    if (!status.enabled) return Colors.redAccent;
+    if (!status.channelEnabled || status.channelImportance <= 0) return const Color(0xFFFFB02E);
+    return const Color(0xFF54D68C);
   }
 
   Widget _accountTile(BuildContext context, AppState app, SourceInfo source) {

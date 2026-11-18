@@ -152,53 +152,76 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-class LoadingList extends StatelessWidget {
+class LoadingList extends StatefulWidget {
   const LoadingList({super.key, this.count = 8});
 
   final int count;
 
   @override
+  State<LoadingList> createState() => _LoadingListState();
+}
+
+class _LoadingListState extends State<LoadingList> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: count,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (_, index) => Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: context.neutral(0.05),
-              borderRadius: BorderRadius.circular(12),
+    // A gentle pulse reads as "loading" without the jank of a full shimmer.
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.55, end: 1).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      ),
+      child: ListView.separated(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: widget.count,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (_, index) => Row(
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: context.neutral(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 150 + (index % 3) * 30,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: context.neutral(0.06),
-                    borderRadius: BorderRadius.circular(6),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 150 + (index % 3) * 30,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: context.neutral(0.06),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 9),
-                Container(
-                  width: 90,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: context.neutral(0.035),
-                    borderRadius: BorderRadius.circular(6),
+                  const SizedBox(height: 9),
+                  Container(
+                    width: 90,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: context.neutral(0.035),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

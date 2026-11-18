@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppColors {
   static const accent = Color(0xFF7B6CFF);
@@ -60,11 +61,13 @@ class AppTheme {
     );
     return base.copyWith(
       textTheme: _textTheme(base.textTheme),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        systemOverlayStyle: _overlayStyle(Brightness.dark),
       ),
       cardTheme: CardThemeData(
         color: AppColors.darkCard,
@@ -124,7 +127,15 @@ class AppTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
       ),
-      listTileTheme: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16)),
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      chipTheme: _chipTheme(),
+      segmentedButtonTheme: _segmentedTheme(scheme),
+      filledButtonTheme: _filledButtonTheme(),
+      textButtonTheme: _textButtonTheme(),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
       dividerTheme: DividerThemeData(color: Colors.white.withValues(alpha: 0.06), thickness: 1),
     );
   }
@@ -148,11 +159,13 @@ class AppTheme {
     );
     return base.copyWith(
       textTheme: _textTheme(base.textTheme),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        systemOverlayStyle: _overlayStyle(Brightness.light),
       ),
       cardTheme: CardThemeData(
         color: AppColors.lightCard,
@@ -212,7 +225,15 @@ class AppTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
       ),
-      listTileTheme: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16)),
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      chipTheme: _chipTheme(),
+      segmentedButtonTheme: _segmentedTheme(scheme),
+      filledButtonTheme: _filledButtonTheme(),
+      textButtonTheme: _textButtonTheme(),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
       dividerTheme: DividerThemeData(color: scheme.onSurface.withValues(alpha: 0.08), thickness: 1),
     );
   }
@@ -228,6 +249,56 @@ class AppTheme {
         bodyLarge: base.bodyLarge?.copyWith(height: 1.45),
         bodyMedium: base.bodyMedium?.copyWith(height: 1.45),
       );
+
+  static ChipThemeData _chipTheme() => ChipThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        secondaryLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      );
+
+  static SegmentedButtonThemeData _segmentedTheme(ColorScheme scheme) => SegmentedButtonThemeData(
+        style: ButtonStyle(
+          visualDensity: VisualDensity.compact,
+          textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          side: WidgetStateProperty.all(BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6))),
+          shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        ),
+      );
+
+  static FilledButtonThemeData _filledButtonTheme() => FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          textStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+        ),
+      );
+
+  static TextButtonThemeData _textButtonTheme() => TextButtonThemeData(
+        style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      );
+
+  static SystemUiOverlayStyle _overlayStyle(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+    );
+  }
+}
+
+/// Keeps status/navigation bar icons readable on pages that have no AppBar
+/// (home, search, player) and follows theme switches immediately.
+Widget themedSystemUi(BuildContext context, Widget? child) {
+  return AnnotatedRegion<SystemUiOverlayStyle>(
+    value: AppTheme._overlayStyle(Theme.of(context).brightness),
+    child: child ?? const SizedBox.shrink(),
+  );
 }
 
 String formatCount(int value) {

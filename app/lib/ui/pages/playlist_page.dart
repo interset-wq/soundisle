@@ -68,7 +68,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
       _error = null;
     });
     try {
-      final detail = widget.type == 'album' ? await api.album(widget.source, widget.id) : await api.playlist(widget.source, widget.id);
+      final detail = widget.type == 'album'
+          ? await api.album(widget.source, widget.id)
+          : await api.playlist(widget.source, widget.id);
       if (!mounted) return;
       setState(() {
         _songs = detail.songs;
@@ -92,11 +94,15 @@ class _PlaylistPageState extends State<PlaylistPage> {
     final isWide = screenWidth > 900;
 
     return Scaffold(
-      bottomNavigationBar: player.hasSong ? const SafeArea(top: false, child: MiniPlayer()) : null,
+      bottomNavigationBar: player.hasSong
+          ? const SafeArea(top: false, child: MiniPlayer())
+          : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
           slivers: [
             SliverAppBar(
               expandedHeight: isWide ? 330 : 300,
@@ -108,12 +114,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   padding: const EdgeInsets.all(6),
                   // The scrim sits on top of the blurred cover in both themes,
                   // so the icon stays white instead of following onSurface.
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.38), shape: BoxShape.circle),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.38),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               actions: [
-                IconButton(onPressed: () => _showCollectionActions(context, app), icon: const Icon(Icons.more_horiz_rounded)),
+                IconButton(
+                  onPressed: () => _showCollectionActions(context, app),
+                  icon: const Icon(Icons.more_horiz_rounded),
+                ),
                 const SizedBox(width: 6),
               ],
               flexibleSpace: FlexibleSpaceBar(
@@ -123,7 +139,16 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     if (cover.isNotEmpty)
                       ImageFiltered(
                         imageFilter: ImageFilter.blur(sigmaX: 36, sigmaY: 36),
-                        child: Opacity(opacity: 0.5, child: CachedNetworkImage(imageUrl: cover, fit: BoxFit.cover)),
+                        child: Opacity(
+                          opacity:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? 0.5
+                              : 0.34,
+                          child: CachedNetworkImage(
+                            imageUrl: cover,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
                     DecoratedBox(
                       decoration: BoxDecoration(
@@ -131,8 +156,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.33),
-                            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
+                            Theme.of(context).scaffoldBackgroundColor
+                                .withValues(alpha: 0.33),
+                            Theme.of(context).scaffoldBackgroundColor
+                                .withValues(alpha: 0.8),
                             Theme.of(context).scaffoldBackgroundColor,
                           ],
                           stops: const [0, 0.68, 1],
@@ -151,7 +178,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
                             size: isWide ? 170 : 118,
                             radius: 20,
                             seed: widget.name,
-                            icon: widget.type == 'album' ? Icons.album_rounded : Icons.queue_music_rounded,
+                            icon: widget.type == 'album'
+                                ? Icons.album_rounded
+                                : Icons.queue_music_rounded,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -161,24 +190,41 @@ class _PlaylistPageState extends State<PlaylistPage> {
                               children: [
                                 Text(
                                   widget.type == 'album' ? '专辑' : '歌单',
-                                  style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: context.neutral(0.5)),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    letterSpacing: 1.5,
+                                    color: context.neutral(0.5),
+                                  ),
                                 ),
                                 const SizedBox(height: 5),
-                                Text(widget.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: isWide ? 30 : 21, fontWeight: FontWeight.w800, height: 1.16)),
+                                Text(
+                                  widget.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: isWide ? 30 : 21,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.16,
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    SourceBadge(name: app.sourceName(widget.source)),
+                                    SourceBadge(
+                                      name: app.sourceName(widget.source),
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        widget.creator.isEmpty ? '${_songs.length} 首歌曲' : '${widget.creator} · ${_songs.length} 首',
+                                        widget.creator.isEmpty
+                                            ? '${_songs.length} 首歌曲'
+                                            : '${widget.creator} · ${_songs.length} 首',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontSize: 11, color: context.neutral(0.48)),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: context.neutral(0.48),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -207,15 +253,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: _songs.isEmpty ? null : () => playSongList(context, _songs, 0),
+                        onPressed: _songs.isEmpty
+                            ? null
+                            : () => playSongList(context, _songs, 0),
                         style: FilledButton.styleFrom(
                           backgroundColor: context.invertedFill,
                           foregroundColor: context.invertedInk,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                         icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text('播放全部 (${_songs.length})', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        label: Text(
+                          '播放全部 (${_songs.length})',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -226,10 +279,15 @@ class _PlaylistPageState extends State<PlaylistPage> {
                               try {
                                 final result = await app.downloadSongs(_songs);
                                 if (context.mounted) {
-                                  showAppSnack(context, app.describeDownloadEnqueue(result));
+                                  showAppSnack(
+                                    context,
+                                    app.describeDownloadEnqueue(result),
+                                  );
                                 }
                               } catch (error) {
-                                if (context.mounted) showAppSnack(context, '$error');
+                                if (context.mounted) {
+                                  showAppSnack(context, '$error');
+                                }
                               }
                             },
                       icon: const Icon(Icons.download_rounded),
@@ -237,7 +295,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     ),
                     const SizedBox(width: 8),
                     IconButton.filledTonal(
-                      onPressed: _songs.isEmpty ? null : () => _showAddAll(context, app),
+                      onPressed: _songs.isEmpty
+                          ? null
+                          : () => _showAddAll(context, app),
                       icon: const Icon(Icons.playlist_add_rounded),
                       tooltip: '收藏歌单',
                     ),
@@ -246,7 +306,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
               ),
             ),
             if (_loading)
-              const SliverToBoxAdapter(child: SizedBox(height: 320, child: LoadingList(count: 6)))
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 320, child: LoadingList(count: 6)),
+              )
             else if (_error != null)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -254,7 +316,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   icon: Icons.cloud_off_rounded,
                   title: '加载失败',
                   subtitle: _error,
-                  action: FilledButton(onPressed: _load, child: const Text('重试')),
+                  action: FilledButton(
+                    onPressed: _load,
+                    child: const Text('重试'),
+                  ),
                 ),
               )
             else if (_songs.isEmpty)
@@ -272,15 +337,26 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     queue: _songs,
                     index: index,
                     selected: player.current?.key == song.key,
+                    playing: player.playing && player.current?.key == song.key,
                     dense: true,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${index + 1}', style: TextStyle(fontSize: 11, color: context.neutral(0.25))),
+                        Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.neutral(0.25),
+                          ),
+                        ),
                         const SizedBox(width: 4),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.more_horiz_rounded, size: 19, color: context.neutral(0.4)),
+                          icon: Icon(
+                            Icons.more_horiz_rounded,
+                            size: 19,
+                            color: context.neutral(0.4),
+                          ),
                           onPressed: () => showSongActions(context, song),
                         ),
                       ],
@@ -295,7 +371,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 
-  Future<void> _showCollectionActions(BuildContext context, AppState app) async {
+  Future<void> _showCollectionActions(
+    BuildContext context,
+    AppState app,
+  ) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -304,37 +383,37 @@ class _PlaylistPageState extends State<PlaylistPage> {
       builder: (sheet) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.playlist_add_check_rounded),
-              title: const Text('添加全部到歌单'),
-              onTap: () {
-                Navigator.pop(sheet);
-                _showAddAll(context, app);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.download_rounded),
-              title: const Text('下载全部'),
-              onTap: () async {
-                Navigator.pop(sheet);
-                final result = await app.downloadSongs(_songs);
-                if (context.mounted) {
-                  showAppSnack(context, app.describeDownloadEnqueue(result));
-                }
-              },
-            ),
-            if (widget.type == 'playlist' && widget.id.isNotEmpty)
+            mainAxisSize: MainAxisSize.min,
+            children: [
               ListTile(
-                leading: const Icon(Icons.open_in_new_rounded),
-                title: const Text('在浏览器中打开'),
+                leading: const Icon(Icons.playlist_add_check_rounded),
+                title: const Text('添加全部到歌单'),
                 onTap: () {
                   Navigator.pop(sheet);
+                  _showAddAll(context, app);
                 },
               ),
-            const SizedBox(height: 8),
-          ],
+              ListTile(
+                leading: const Icon(Icons.download_rounded),
+                title: const Text('下载全部'),
+                onTap: () async {
+                  Navigator.pop(sheet);
+                  final result = await app.downloadSongs(_songs);
+                  if (context.mounted) {
+                    showAppSnack(context, app.describeDownloadEnqueue(result));
+                  }
+                },
+              ),
+              if (widget.type == 'playlist' && widget.id.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.open_in_new_rounded),
+                  title: const Text('在浏览器中打开'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
@@ -351,26 +430,38 @@ class _PlaylistPageState extends State<PlaylistPage> {
       builder: (sheet) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Align(alignment: Alignment.centerLeft, child: Text('收藏到歌单', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
-            ),
-            for (final collection in app.collections)
-              ListTile(
-                leading: Icon(collection.isFavorites ? Icons.favorite_rounded : Icons.queue_music_rounded,
-                    color: collection.isFavorites ? AppColors.accentAlt : null),
-                title: Text(collection.name),
-                subtitle: Text('${collection.songs.length} 首'),
-                onTap: () async {
-                  await app.addToCollection(collection.id, _songs);
-                  if (sheet.mounted) Navigator.pop(sheet);
-                  if (context.mounted) showAppSnack(context, '已添加到「${collection.name}」');
-                },
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '收藏到歌单',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
+                ),
               ),
-            const SizedBox(height: 8),
-          ],
+              for (final collection in app.collections)
+                ListTile(
+                  leading: Icon(
+                    collection.isFavorites
+                        ? Icons.favorite_rounded
+                        : Icons.queue_music_rounded,
+                    color: collection.isFavorites ? AppColors.accentAlt : null,
+                  ),
+                  title: Text(collection.name),
+                  subtitle: Text('${collection.songs.length} 首'),
+                  onTap: () async {
+                    await app.addToCollection(collection.id, _songs);
+                    if (sheet.mounted) Navigator.pop(sheet);
+                    if (context.mounted) {
+                      showAppSnack(context, '已添加到「${collection.name}」');
+                    }
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
@@ -398,7 +489,11 @@ class _ExpandableTextState extends State<_ExpandableText> {
         widget.text,
         maxLines: _expanded ? null : 2,
         overflow: _expanded ? null : TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, height: 1.5, color: context.neutral(0.42)),
+        style: TextStyle(
+          fontSize: 12,
+          height: 1.5,
+          color: context.neutral(0.42),
+        ),
       ),
     );
   }

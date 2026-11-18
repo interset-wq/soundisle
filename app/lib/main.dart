@@ -126,6 +126,7 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
+      builder: themedSystemUi,
       home: home,
     );
     if (_loading) {

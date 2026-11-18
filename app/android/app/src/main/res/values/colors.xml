@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches AppColors.lightBackground so the native launch window does not
+         flash a different shade before Flutter draws its first frame. -->
+    <color name="launch_background">#FFF7F6FB</color>
+</resources>

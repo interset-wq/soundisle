@@ -131,7 +131,7 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
-      chipTheme: _chipTheme(),
+      chipTheme: _chipTheme(scheme),
       segmentedButtonTheme: _segmentedTheme(scheme),
       filledButtonTheme: _filledButtonTheme(),
       textButtonTheme: _textButtonTheme(),
@@ -229,7 +229,7 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
-      chipTheme: _chipTheme(),
+      chipTheme: _chipTheme(scheme),
       segmentedButtonTheme: _segmentedTheme(scheme),
       filledButtonTheme: _filledButtonTheme(),
       textButtonTheme: _textButtonTheme(),
@@ -250,12 +250,23 @@ class AppTheme {
         bodyMedium: base.bodyMedium?.copyWith(height: 1.45),
       );
 
-  static ChipThemeData _chipTheme() => ChipThemeData(
+  // A chip label style without a color overrides the Material defaults and
+  // leaves the label colour to the ambient text style, which renders white on
+  // the light theme's pale chip fills. Always supply an explicit colour.
+  static ChipThemeData _chipTheme(ColorScheme scheme) => ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        secondaryLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        labelStyle: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: scheme.onSurface,
+        ),
+        secondaryLabelStyle: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: scheme.onSurface,
+        ),
       );
 
   static SegmentedButtonThemeData _segmentedTheme(ColorScheme scheme) => SegmentedButtonThemeData(

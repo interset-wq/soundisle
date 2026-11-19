@@ -489,7 +489,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
               Expanded(
                 child: Text(
                   '支持直接粘贴网易云、QQ 音乐、酷狗、酷我、B 站等平台链接',
-                  style: TextStyle(fontSize: 11.5, height: 1.45, color: context.neutral(0.55)),
+                  style: TextStyle(fontSize: 11.5, height: 1.45, color: context.neutral(0.62)),
                 ),
               ),
             ],
@@ -519,7 +519,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
             child: Text(
               '找到 $total 首歌曲 · ${response.tookMs}ms',
-              style: TextStyle(fontSize: 11.5, color: context.neutral(0.38)),
+              style: TextStyle(fontSize: 11.5, color: context.neutral(0.48)),
             ),
           ),
         ),
@@ -532,8 +532,10 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                   children: [
                     SourceBadge(name: group.name),
                     const SizedBox(width: 8),
-                    Text('${group.songs.length} 首', style: TextStyle(fontSize: 10.5, color: context.neutral(0.32))),
-                    if (group.error.isNotEmpty) ...[const Text(' · ', style: TextStyle(fontSize: 10.5)), Flexible(child: Text(group.error, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Colors.orange.withValues(alpha: 0.7))))],
+                    Text('${group.songs.length} 首', style: TextStyle(fontSize: 10.5, color: context.neutral(0.45))),
+                    if (group.error.isNotEmpty) ...[const Text(' · ', style: TextStyle(fontSize: 10.5)), Flexible(child: Text(group.error, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.orangeAccent
+                        : const Color(0xFFB45309))))],
                   ],
                 ),
               ),
@@ -593,7 +595,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                 child: Text(
                   '找到 $total 个${type == 'album' ? '专辑' : '歌单'} · ${response.tookMs}ms',
-                  style: TextStyle(fontSize: 11.5, color: context.neutral(0.38)),
+                  style: TextStyle(fontSize: 11.5, color: context.neutral(0.48)),
                 ),
               ),
             ),
@@ -607,7 +609,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                         SourceBadge(name: group.name),
                         const SizedBox(width: 8),
                         Text('${group.playlists.length} 个${type == 'album' ? '专辑' : '歌单'}',
-                            style: TextStyle(fontSize: 10.5, color: context.neutral(0.32))),
+                            style: TextStyle(fontSize: 10.5, color: context.neutral(0.45))),
                       ],
                     ),
                   ),

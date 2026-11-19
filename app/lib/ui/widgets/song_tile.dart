@@ -151,7 +151,7 @@ class SongTile extends StatelessWidget {
                             song.durationText,
                             style: TextStyle(
                               fontSize: 11,
-                              color: context.neutral(0.32),
+                              color: context.neutral(0.42),
                             ),
                           ),
                         ],

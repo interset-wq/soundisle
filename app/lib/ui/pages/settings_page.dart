@@ -350,7 +350,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 10.5, color: context.neutral(0.34))),
+                  Text(subtitle, style: TextStyle(fontSize: 10.5, color: context.neutral(0.44))),
                 ],
               ],
             ),

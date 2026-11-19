@@ -49,16 +49,21 @@ class SourceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _colorFor(name);
+    // Saturated source colours are designed for dark surfaces; on the light
+    // theme amber/teal text on a pale tint is nearly invisible, so darken the
+    // ink while keeping the tint.
+    final light = Theme.of(context).brightness == Brightness.light;
+    final ink = light ? Color.lerp(color, Colors.black, 0.38)! : color;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: dense ? 5 : 7, vertical: dense ? 1 : 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
+        color: color.withValues(alpha: light ? 0.12 : 0.16),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.35), width: 0.7),
+        border: Border.all(color: ink.withValues(alpha: 0.4), width: 0.7),
       ),
       child: Text(
         name,
-        style: TextStyle(fontSize: dense ? 9 : 10, fontWeight: FontWeight.w700, color: color, height: 1.2),
+        style: TextStyle(fontSize: dense ? 9 : 10, fontWeight: FontWeight.w700, color: ink, height: 1.2),
       ),
     );
   }

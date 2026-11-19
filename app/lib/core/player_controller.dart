@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import 'api_client.dart';
+import 'media_session.dart';
 import 'permissions.dart';
 import 'models.dart';
 
@@ -21,12 +22,23 @@ class PlayerController extends ChangeNotifier {
       if (state.processingState == ProcessingState.completed) {
         next(auto: true);
       }
+      // The notification's stop action reaches the background audio handler
+      // but not this controller. It disposes the platform player, so playback
+      // falls back to `idle`; treat that as an external stop.
+      if (state.processingState == ProcessingState.idle &&
+          current != null &&
+          !_stopping) {
+        unawaited(handleExternalStop());
+      }
       notifyListeners();
     });
-    _errorSub = player.playbackEventStream.listen((_) {}, onError: (Object error, StackTrace stack) {
-      errorText = '$error';
-      notifyListeners();
-    });
+    _errorSub = player.playbackEventStream.listen(
+      (_) => _ensureSessionWatch(),
+      onError: (Object error, StackTrace stack) {
+        errorText = '$error';
+        notifyListeners();
+      },
+    );
   }
 
   final ApiClient api;
@@ -169,6 +181,7 @@ class PlayerController extends ChangeNotifier {
         await player.setSpeed(speed);
       }
       await player.play();
+      _ensureSessionWatch();
       unawaited(loadLyrics(song));
     } catch (error) {
       if (current?.key != song.key) return;
@@ -215,11 +228,57 @@ class PlayerController extends ChangeNotifier {
 
   Future<void> pause() => player.pause();
 
+  bool _stopping = false;
+  bool _sessionWatched = false;
+  bool _watchPending = false;
+
+  /// The foreground service is created asynchronously after playback starts,
+  /// so keep retrying until the shell can attach its stop listener.
+  void _ensureSessionWatch() {
+    if (_sessionWatched || _watchPending) return;
+    _watchPending = true;
+    MediaSession.watch().then((ok) {
+      _watchPending = false;
+      if (ok) _sessionWatched = true;
+    }, onError: (_) {
+      _watchPending = false;
+    });
+  }
+
   /// Ends the session and removes the ongoing media notification.
   Future<void> stop() async {
+    _stopping = true;
     try {
-      await player.stop();
-    } catch (_) {}
+      try {
+        await player.stop();
+      } catch (_) {}
+      // audio_service cannot destroy its bound foreground service, so the
+      // media card would linger; the shell removes it explicitly.
+      await MediaSession.stop();
+      _resetSession();
+    } finally {
+      _stopping = false;
+    }
+  }
+
+  /// Handles a stop triggered from the notification, which never reaches the
+  /// Dart isolate on its own.
+  Future<void> handleExternalStop() async {
+    if (_stopping) return;
+    _stopping = true;
+    try {
+      try {
+        await player.stop();
+      } catch (_) {}
+      await MediaSession.stop();
+      _resetSession();
+    } finally {
+      _stopping = false;
+    }
+  }
+
+  void _resetSession() {
+    _sessionWatched = false;
     current = null;
     playInfo = null;
     loading = false;

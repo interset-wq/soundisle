@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  audio_service resolves the media notification's small icon by resource name
-  from Dart (`androidNotificationIcon: 'drawable/ic_stat_soundisle'`). The
-  resource shrinker cannot see that reference, so it strips the drawable and
-  Notification.Builder#setSmallIcon(0) fails - the notification never appears.
-  Keep it explicitly here.
+  audio_service resolves the media notification's small icon and its playback
+  action icons by resource name at runtime:
+    - Dart passes `androidNotificationIcon: 'drawable/ic_stat_soundisle'`
+    - MediaControl.stop/pause/play/etc. use `drawable/audio_service_*`
+  The resource shrinker cannot see those string references, so it strips the
+  drawables. On Android 13+ a missing action icon makes CustomAction.Builder
+  throw ("You must specify an icon resource id"), which aborts setState before
+  the foreground service starts and the media notification never appears.
+  Keep them explicitly here.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_stat_soundisle" />
+    tools:keep="@drawable/ic_stat_soundisle,@drawable/audio_service_*" />

@@ -10,6 +10,7 @@ import 'app.dart';
 import 'core/api_client.dart';
 import 'core/app_state.dart';
 import 'core/backend.dart';
+import 'core/media_session.dart';
 import 'core/permissions.dart';
 import 'core/player_controller.dart';
 import 'ui/theme.dart';
@@ -96,6 +97,8 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
       await appState.initialize();
       final player = PlayerController(api);
       player.onSongStarted = appState.recordPlayed;
+      MediaSession.install();
+      MediaSession.onStopped = player.handleExternalStop;
       if (!mounted) {
         player.dispose();
         api.close();

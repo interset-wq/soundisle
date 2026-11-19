@@ -19,6 +19,7 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.ryanheise.audioservice.AudioServiceActivity
+import com.ryanheise.audioservice.SoundisleAudioBridge
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -36,6 +37,7 @@ class MainActivity : AudioServiceActivity() {
     private val channelName = "app.soundisle/backend"
     private val storageChannelName = "app.soundisle/storage"
     private val permissionChannelName = "app.soundisle/permissions"
+    private val mediaChannelName = "app.soundisle/media"
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private companion object {
@@ -77,6 +79,26 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+        val mediaChannel =
+            MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mediaChannelName)
+        mediaChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "stopSession" -> result.success(
+                    SoundisleAudioBridge.stopSession(this)
+                )
+                "watchSession" -> result.success(
+                    SoundisleAudioBridge.watchSession(this) {
+                        // The engine may already be detaching when the service
+                        // is destroyed; never let the callback crash the app.
+                        try {
+                            mediaChannel.invokeMethod("sessionStopped", null)
+                        } catch (_: Exception) {
+                        }
+                    }
+                )
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun handle(call: MethodCall, result: MethodChannel.Result) {

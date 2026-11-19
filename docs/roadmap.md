@@ -121,7 +121,9 @@ Android 是当前唯一验收平台。通知、下载、媒体库、后台播放
 5. 迷你播放器：顶部细边框、浅色阴影、主题色进度条与按钮 tooltip；出现/消失带尺寸动画；
 6. 音乐库批量操作栏改用主题 surface，修复浅色下黑图标不可见；搜索入口、发送按钮、歌单头部返回按钮补齐水波纹与语义；
 7. 加载骨架改为呼吸式淡入淡出；首页 hero 高度随系统字号增长，播放页底部操作等宽防溢出；
-8. Android 原生启动背景使用主题色（浅色 `#FFF7F6FB` / 深色 `#FF0A0A11`），消除冷启动闪白/闪黑。
+8. Android 原生启动背景使用主题色（浅色 `#FFF7F6FB` / 深色 `#FF0A0A11`），消除冷启动闪白/闪黑；
+9. 修复 Android 13+ 媒体通知不出现：资源压缩移除了 `audio_service` 按名称查找的播放/暂停/停止图标，`CustomAction.Builder` 抛 `IllegalArgumentException` 导致 `setState` 中断、前台服务未启动；`res/raw/keep.xml` 显式保留 `@drawable/audio_service_*`。
+10. 修复「停止播放」后通知栏残留旧媒体卡片：`audio_service` 的服务被 Activity 绑定，`stopSelf()` 无法销毁，前台通知取消后又被系统补回；新增同包桥接 `SoundisleAudioBridge` 显式 `stopForeground(REMOVE)`（不能 `stopService`，否则 `onDestroy` 会销毁共享 FlutterEngine 导致界面白屏），通知内停止时 Dart 侧检测到播放器回到 idle 后同步清空状态并退回首页。
 
 ## 4. 下一批候选（Android 收口后再启动跨平台）
 

@@ -38,6 +38,13 @@ class _PlayerPageState extends State<PlayerPage> {
     final app = context.watch<AppState>();
     final song = player.current;
     if (song == null) {
+      // Playback can end outside this page (e.g. "stop" on the notification),
+      // which clears the controller while the page is still on screen.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Also closes the queue sheet, which may sit above this page.
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      });
       return const Scaffold(body: SizedBox.shrink());
     }
     final cover = app.api.coverUrl(song.cover, source: song.source);

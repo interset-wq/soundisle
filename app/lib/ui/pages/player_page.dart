@@ -412,11 +412,20 @@ class _PlayerPageState extends State<PlayerPage> {
           icon: const Icon(Icons.skip_next_rounded, size: 38),
         ),
         IconButton(
-          onPressed: () => _showQueue(context),
+          tooltip: switch (player.repeatMode) {
+            PlaybackRepeatMode.off => '列表循环',
+            PlaybackRepeatMode.all => '单曲循环',
+            PlaybackRepeatMode.one => '关闭循环',
+          },
+          onPressed: player.cycleRepeat,
           icon: Icon(
-            Icons.format_list_bulleted_rounded,
+            player.repeatMode == PlaybackRepeatMode.one
+                ? Icons.repeat_one_rounded
+                : Icons.repeat_rounded,
             size: 22,
-            color: context.neutral(0.55),
+            color: player.repeatMode == PlaybackRepeatMode.off
+                ? context.neutral(0.55)
+                : AppColors.accent,
           ),
         ),
       ],
@@ -470,7 +479,10 @@ class _PlayerPageState extends State<PlayerPage> {
           child: _action(
             context,
             icon: Icons.bedtime_rounded,
-            label: _sleepLabel(player.sleepRemaining),
+            label: _sleepLabel(
+              player.sleepRemaining,
+              afterCurrent: player.sleepAfterCurrent,
+            ),
             onTap: () => _showSleepSheet(context, player),
           ),
         ),
@@ -500,7 +512,8 @@ class _PlayerPageState extends State<PlayerPage> {
     return '${speed}x';
   }
 
-  String _sleepLabel(Duration? remaining) {
+  String _sleepLabel(Duration? remaining, {bool afterCurrent = false}) {
+    if (afterCurrent) return '本曲后';
     if (remaining == null) return '定时';
     final minutes = (remaining.inSeconds / 60).ceil();
     return minutes <= 0 ? '定时' : '$minutes分';
@@ -574,7 +587,15 @@ class _PlayerPageState extends State<PlayerPage> {
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 8),
-                  if (player.sleepRemaining != null)
+                  if (player.sleepAfterCurrent)
+                    Text(
+                      '本曲结束后暂停',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.neutral(0.42),
+                      ),
+                    )
+                  else if (player.sleepRemaining != null)
                     Text(
                       '剩余 ${_sleepLabel(player.sleepRemaining)}',
                       style: TextStyle(
@@ -598,6 +619,22 @@ class _PlayerPageState extends State<PlayerPage> {
                   );
                 },
               ),
+            ListTile(
+              dense: true,
+              title: const Text('播完当前歌曲'),
+              trailing: player.sleepAfterCurrent
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 20,
+                      color: AppColors.accent,
+                    )
+                  : null,
+              onTap: () {
+                player.setSleepAfterCurrent(true);
+                Navigator.pop(sheetContext);
+                showAppSnack(context, '将在当前歌曲结束后暂停');
+              },
+            ),
             const SizedBox(height: 8),
           ],
         ),

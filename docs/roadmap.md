@@ -1,6 +1,6 @@
 # 第三版规划（1.0.2 → 1.0.8）
 
-> 状态：**1.0.9 验收包准备中**（UI 打磨）；上一发布为 `v1.0.8-android.35`，再往前是 `v1.0.7-android.31`（稳定 release 签名）。
+> 状态：**1.0.10 开发中**（播放体验补齐）；1.0.9 已作为验收包发布为 `v1.0.9-android.42`，再往前是 `v1.0.8-android.35`（稳定 release 签名）。
 > 更早版本为 `v1.0.6-android.29`、`v1.0.5-android.26`、`v1.0.4-android.24`、`v1.0.3-android.22`、`v1.0.2-android.18`、`v1.0.1-android.*`（1.0.1，debug 签名）。
 
 ## 0. 平台节奏
@@ -124,6 +124,13 @@ Android 是当前唯一验收平台。通知、下载、媒体库、后台播放
 8. Android 原生启动背景使用主题色（浅色 `#FFF7F6FB` / 深色 `#FF0A0A11`），消除冷启动闪白/闪黑；
 9. 修复 Android 13+ 媒体通知不出现：资源压缩移除了 `audio_service` 按名称查找的播放/暂停/停止图标，`CustomAction.Builder` 抛 `IllegalArgumentException` 导致 `setState` 中断、前台服务未启动；`res/raw/keep.xml` 显式保留 `@drawable/audio_service_*`。
 10. 修复「停止播放」后通知栏残留旧媒体卡片：`audio_service` 的服务被 Activity 绑定，`stopSelf()` 无法销毁，前台通知取消后又被系统补回；新增同包桥接 `SoundisleAudioBridge` 显式 `stopForeground(REMOVE)`（不能 `stopService`，否则 `onDestroy` 会销毁共享 FlutterEngine 导致界面白屏），通知内停止时 Dart 侧检测到播放器回到 idle 后同步清空状态并退回首页。
+
+### 1.0.10（开发中）
+
+1. 播放页新增循环模式：关闭 / 列表循环 / 单曲循环，图标随状态切换，队列结束按模式处理；
+2. 定时停止新增「播完当前歌曲」：到曲末暂停并回到开头，不再打断当前歌曲；
+3. 拔出耳机或蓝牙断开时自动暂停（`audio_session` 的 becoming-noisy 事件），符合系统音乐 App 习惯；
+4. 曲末处理抽成纯函数 `playbackEndAction` 并补单元测试，覆盖循环、定时与队列结束的组合。
 
 ## 4. 下一批候选（Android 收口后再启动跨平台）
 

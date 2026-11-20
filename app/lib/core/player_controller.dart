@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'media_session.dart';
@@ -50,6 +52,82 @@ PlaybackEndAction playbackEndAction({
   return PlaybackEndAction.advance;
 }
 
+/// Serialised playback state used to restore the last session on cold start.
+class PlaybackSnapshot {
+  const PlaybackSnapshot({
+    required this.songs,
+    required this.index,
+    required this.position,
+    required this.shuffle,
+    required this.repeat,
+    required this.speed,
+  });
+
+  final List<Song> songs;
+  final int index;
+  final Duration position;
+  final bool shuffle;
+  final PlaybackRepeatMode repeat;
+  final double speed;
+}
+
+/// Bump when the snapshot layout changes so old data is ignored instead of
+/// being misread.
+const playbackSnapshotVersion = 1;
+
+Map<String, dynamic> encodePlaybackSnapshot(PlaybackSnapshot snapshot) => {
+      'v': playbackSnapshotVersion,
+      'songs': [for (final song in snapshot.songs) song.toJson()],
+      'index': snapshot.index,
+      'positionMs': snapshot.position.inMilliseconds,
+      'shuffle': snapshot.shuffle,
+      'repeat': snapshot.repeat.name,
+      'speed': snapshot.speed,
+    };
+
+/// Returns null for missing, corrupt or outdated data; startup must never fail
+/// because of a stale preference entry.
+PlaybackSnapshot? decodePlaybackSnapshot(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    if ((decoded['v'] as num?)?.toInt() != playbackSnapshotVersion) {
+      return null;
+    }
+    final songs = <Song>[];
+    final rawSongs = decoded['songs'];
+    if (rawSongs is List) {
+      for (final item in rawSongs) {
+        if (item is! Map) continue;
+        try {
+          songs.add(Song.fromJson(item.cast<String, dynamic>()));
+        } catch (_) {}
+      }
+    }
+    if (songs.isEmpty) return null;
+    final index = ((decoded['index'] as num?)?.toInt() ?? 0)
+        .clamp(0, songs.length - 1);
+    final positionMs = (decoded['positionMs'] as num?)?.toInt() ?? 0;
+    final repeatName = decoded['repeat'];
+    final speed = ((decoded['speed'] as num?)?.toDouble() ?? 1.0)
+        .clamp(0.5, 3.0);
+    return PlaybackSnapshot(
+      songs: songs,
+      index: index,
+      position: Duration(milliseconds: positionMs < 0 ? 0 : positionMs),
+      shuffle: decoded['shuffle'] == true,
+      repeat: PlaybackRepeatMode.values.firstWhere(
+        (mode) => mode.name == repeatName,
+        orElse: () => PlaybackRepeatMode.off,
+      ),
+      speed: speed,
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
 class LyricLine {
   const LyricLine(this.time, this.text);
 
@@ -68,8 +146,18 @@ class PlayerController extends ChangeNotifier {
       // falls back to `idle`; treat that as an external stop.
       if (state.processingState == ProcessingState.idle &&
           current != null &&
+          _sessionStarted &&
           !_stopping) {
         unawaited(handleExternalStop());
+      }
+      // Only keep the periodic writer alive while audio is actually playing;
+      // pause/stop save once and then let the CPU idle.
+      if (state.playing) {
+        _ensurePersistTimer();
+      } else if (_persistTimer != null) {
+        _persistTimer?.cancel();
+        _persistTimer = null;
+        _schedulePersist();
       }
       notifyListeners();
     });
@@ -172,6 +260,7 @@ class PlayerController extends ChangeNotifier {
       PlaybackRepeatMode.all => PlaybackRepeatMode.one,
       PlaybackRepeatMode.one => PlaybackRepeatMode.off,
     };
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -195,6 +284,7 @@ class PlayerController extends ChangeNotifier {
       queue = [?currentSong, ...rest];
       index = 0;
     }
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -208,6 +298,74 @@ class PlayerController extends ChangeNotifier {
     final value = player.duration;
     if (value != null && value > const Duration(seconds: 1)) return value;
     return Duration(seconds: current?.duration ?? 0);
+  }
+
+  /// Restores the last queue and track, paused at the saved position. Nothing
+  /// starts playing: the stream is prepared in the background so the mini
+  /// player can show the previous track right after a cold start.
+  Future<void> restoreSnapshot() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final snapshot = decodePlaybackSnapshot(prefs.getString(_snapshotKey));
+      if (snapshot == null) return;
+      queue = snapshot.songs;
+      index = snapshot.index;
+      current = snapshot.songs[snapshot.index];
+      shuffle = snapshot.shuffle;
+      repeatMode = snapshot.repeat;
+      speed = snapshot.speed;
+      if (snapshot.position > Duration.zero) {
+        _pendingResumeKey = current!.key;
+        _pendingResumeAt = snapshot.position;
+      }
+      notifyListeners();
+      unawaited(_prepareRestoredSource());
+    } catch (_) {
+      // Never let a bad preference entry block startup.
+    }
+  }
+
+  Future<void> _prepareRestoredSource() async {
+    final song = current;
+    if (song == null) return;
+    final generation = ++_loadGeneration;
+    final resumeAt = _pendingResumeAt;
+    try {
+      final info = await api.play(song);
+      if (generation != _loadGeneration ||
+          current?.key != song.key ||
+          _stopping) {
+        return;
+      }
+      playInfo = info;
+      await _loadSource(song, info);
+      if (generation != _loadGeneration || current?.key != song.key) return;
+      _sessionStarted = true;
+      if (resumeAt != null) {
+        try {
+          await player.seek(resumeAt);
+        } catch (_) {}
+        _pendingResumeAt = null;
+        _pendingResumeKey = null;
+      }
+      notifyListeners();
+    } catch (_) {
+      // Keep the restored track visible; the user can start it manually.
+    }
+  }
+
+  Future<void> _loadSource(Song song, PlayInfo info) async {
+    final cover = api.coverUrl(song.cover, source: song.source);
+    await player.setAudioSource(AudioSource.uri(
+      Uri.parse(info.url),
+      tag: MediaItem(
+        id: song.key,
+        album: song.album.isEmpty ? '音乐' : song.album,
+        title: song.name,
+        artist: song.artist,
+        artUri: cover.isEmpty ? null : Uri.parse(cover),
+      ),
+    ));
   }
 
   Future<void> playSong(Song song, {List<Song>? queue, int startIndex = -1}) async {
@@ -234,35 +392,39 @@ class PlayerController extends ChangeNotifier {
     // Ask for the notification permission in the context of an actual play
     // action; a request at cold start is easy to miss (and some ROMs deny it).
     unawaited(AppPermissions.requestNotificationPermission());
+    final generation = ++_loadGeneration;
     try {
       final info = await api.play(song);
-      // A second tap may have selected another song while this request was in
-      // flight; never let the older response replace the newer track.
-      if (current?.key != song.key) return;
+      // A second tap (or a restored session still loading) may have selected
+      // another source while this request was in flight; never let the older
+      // response replace the newer track.
+      if (generation != _loadGeneration || current?.key != song.key) return;
       playInfo = info;
-      final cover = api.coverUrl(song.cover, source: song.source);
-      await player.setAudioSource(AudioSource.uri(
-        Uri.parse(info.url),
-        tag: MediaItem(
-          id: song.key,
-          album: song.album.isEmpty ? '音乐' : song.album,
-          title: song.name,
-          artist: song.artist,
-          artUri: cover.isEmpty ? null : Uri.parse(cover),
-        ),
-      ));
-      if (current?.key != song.key) return;
+      await _loadSource(song, info);
+      if (generation != _loadGeneration || current?.key != song.key) return;
+      _sessionStarted = true;
+      final resumeAt =
+          _pendingResumeKey == song.key ? _pendingResumeAt : null;
+      _pendingResumeKey = null;
+      _pendingResumeAt = null;
+      if (resumeAt != null) {
+        try {
+          await player.seek(resumeAt);
+        } catch (_) {}
+      }
       if (speed != 1.0) {
         await player.setSpeed(speed);
       }
       await player.play();
       _ensureSessionWatch();
+      _ensurePersistTimer();
+      _schedulePersist();
       unawaited(loadLyrics(song));
     } catch (error) {
-      if (current?.key != song.key) return;
+      if (generation != _loadGeneration || current?.key != song.key) return;
       errorText = error is ApiException ? error.message : '$error';
     } finally {
-      if (current?.key == song.key) {
+      if (generation == _loadGeneration && current?.key == song.key) {
         loading = false;
         notifyListeners();
       }
@@ -293,20 +455,49 @@ class PlayerController extends ChangeNotifier {
     if (!hasSong) return;
     if (player.playing) {
       await player.pause();
+      _schedulePersist();
     } else {
+      if (player.audioSource == null) {
+        // Restored from a previous session but the stream is not ready yet
+        // (or preparing it failed); load it and resume from the saved spot.
+        await playSong(current!, queue: queue, startIndex: index);
+        return;
+      }
       if (player.processingState == ProcessingState.completed) {
         await player.seek(Duration.zero);
       }
       await player.play();
+      _schedulePersist();
     }
   }
 
-  Future<void> pause() => player.pause();
+  Future<void> pause() async {
+    await player.pause();
+    _schedulePersist();
+  }
 
   bool _stopping = false;
   bool _handlingCompletion = false;
   bool _disposed = false;
+
+  /// True once an audio source has been attached at least once. The idle state
+  /// before that is normal (e.g. a restored, not-yet-played session) and must
+  /// not be mistaken for a stop from the notification.
+  bool _sessionStarted = false;
   bool _sessionWatched = false;
+
+  /// Position to apply after restoring a cold-start session. Kept until the
+  /// stream is loaded so the snapshot stays accurate if loading fails.
+  String? _pendingResumeKey;
+  Duration? _pendingResumeAt;
+
+  /// Invalidates an older load when the user picks another song while the
+  /// restored source is still being prepared.
+  int _loadGeneration = 0;
+
+  Timer? _persistTimer;
+  Timer? _persistDebounce;
+  static const _snapshotKey = 'player.snapshot_v1';
   bool _watchPending = false;
 
   /// The foreground service is created asynchronously after playback starts,
@@ -356,6 +547,14 @@ class PlayerController extends ChangeNotifier {
 
   void _resetSession() {
     _sessionWatched = false;
+    _sessionStarted = false;
+    _loadGeneration++;
+    _pendingResumeKey = null;
+    _pendingResumeAt = null;
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    _persistDebounce?.cancel();
+    _persistDebounce = null;
     current = null;
     playInfo = null;
     loading = false;
@@ -364,10 +563,14 @@ class PlayerController extends ChangeNotifier {
     lyrics = [];
     queue = [];
     index = -1;
+    unawaited(_clearSnapshot());
     notifyListeners();
   }
 
-  Future<void> seek(Duration position) => player.seek(position);
+  Future<void> seek(Duration position) async {
+    await player.seek(position);
+    _schedulePersist();
+  }
 
   Future<void> setVolume(double volume) => player.setVolume(volume);
 
@@ -444,14 +647,18 @@ class PlayerController extends ChangeNotifier {
   void playNext(Song song) {
     if (queue.isEmpty) {
       queue = [song];
+      _schedulePersist();
+      notifyListeners();
       return;
     }
     queue.insert(index < 0 ? 0 : index + 1, song);
+    _schedulePersist();
     notifyListeners();
   }
 
   void addToQueue(Song song) {
     queue.add(song);
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -463,6 +670,7 @@ class PlayerController extends ChangeNotifier {
       index = index.clamp(0, queue.length - 1);
       playSong(queue[index]);
     }
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -480,6 +688,7 @@ class PlayerController extends ChangeNotifier {
     } else if (from > index && to <= index) {
       index += 1;
     }
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -497,9 +706,53 @@ class PlayerController extends ChangeNotifier {
     return result;
   }
 
+  void _ensurePersistTimer() {
+    _persistTimer ??= Timer.periodic(const Duration(seconds: 15), (_) {
+      if (player.playing) _saveSnapshot();
+    });
+  }
+
+  /// Coalesces bursts (seek + pause + queue change) into one write.
+  void _schedulePersist() {
+    _persistDebounce?.cancel();
+    _persistDebounce = Timer(const Duration(milliseconds: 800), _saveSnapshot);
+  }
+
+  Future<void> _saveSnapshot() async {
+    final song = current;
+    if (song == null || queue.isEmpty) return;
+    try {
+      final pending = _pendingResumeKey == song.key;
+      final snapshot = PlaybackSnapshot(
+        songs: queue,
+        index: index < 0 ? 0 : index,
+        position: pending ? (_pendingResumeAt ?? Duration.zero) : player.position,
+        shuffle: shuffle,
+        repeat: repeatMode,
+        speed: speed,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _snapshotKey,
+        jsonEncode(encodePlaybackSnapshot(snapshot)),
+      );
+    } catch (_) {
+      // Persistence is best-effort; playback must not be affected.
+    }
+  }
+
+  Future<void> _clearSnapshot() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_snapshotKey);
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    _persistTimer?.cancel();
+    _persistDebounce?.cancel();
     _sleepTimer?.cancel();
     _sleepTicker?.cancel();
     _stateSub.cancel();

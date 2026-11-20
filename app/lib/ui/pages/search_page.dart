@@ -15,6 +15,7 @@ import 'playlist_page.dart';
 
 const _searchTypes = ['song', 'playlist', 'album'];
 const _historyKey = 'search_history_v1';
+const _sourcesKey = 'search_sources_v1';
 const _suggestions = ['周杰伦', '林俊杰', '陈奕迅', '邓紫棋', '五月天', '薛之谦', '毛不易', 'Taylor Swift'];
 
 class SearchPage extends StatefulWidget {
@@ -59,17 +60,34 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
     WidgetsBinding.instance.addPostFrameCallback((_) => _initSources());
   }
 
-  void _initSources() {
+  Future<void> _initSources() async {
     if (_sourcesInitialized) return;
     final app = context.read<AppState>();
     final searchable = app.sources.where((e) => e.search).map((e) => e.id).toSet();
     final defaults = app.defaultSources.where(searchable.contains).toList();
+    // Remember the user's source picker across restarts.
+    List<String> stored = const [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      stored = prefs.getStringList(_sourcesKey) ?? const [];
+    } catch (_) {}
+    if (!mounted || _sourcesInitialized) return;
+    final saved = stored.where(searchable.contains).toList();
     setState(() {
       _selectedSources
         ..clear()
-        ..addAll(defaults.isNotEmpty ? defaults : searchable.take(5));
+        ..addAll(saved.isNotEmpty
+            ? saved
+            : (defaults.isNotEmpty ? defaults : searchable.take(5)));
       _sourcesInitialized = true;
     });
+  }
+
+  Future<void> _saveSources() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_sourcesKey, _selectedSources.toList());
+    } catch (_) {}
   }
 
   Future<void> _loadHistory() async {
@@ -91,6 +109,13 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
     setState(() => _history = []);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_historyKey);
+  }
+
+  Future<void> _removeHistory(String query) async {
+    final next = _history.where((e) => e != query).toList();
+    setState(() => _history = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_historyKey, next);
   }
 
   void focusSearch() {
@@ -217,6 +242,7 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
         _selectedSources.add(id);
       }
     });
+    unawaited(_saveSources());
     if (_lastQuery.isNotEmpty) {
       setState(() {
         _searchGeneration++;
@@ -438,12 +464,15 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
             runSpacing: 8,
             children: [
               for (final item in _history)
-                ActionChip(
+                InputChip(
                   label: Text(item),
                   avatar: Icon(Icons.history_rounded, size: 14, color: context.neutral(0.4)),
                   labelStyle: TextStyle(fontSize: 12, color: context.neutral(0.72)),
                   backgroundColor: context.neutral(0.055),
                   side: BorderSide.none,
+                  deleteIcon: Icon(Icons.close_rounded, size: 14, color: context.neutral(0.4)),
+                  deleteIconColor: context.neutral(0.4),
+                  onDeleted: () => _removeHistory(item),
                   onPressed: () {
                     _controller.text = item;
                     _submit(item);

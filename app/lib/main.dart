@@ -99,6 +99,8 @@ class _BootstrapAppState extends State<BootstrapApp> with WidgetsBindingObserver
       player.onSongStarted = appState.recordPlayed;
       MediaSession.install();
       MediaSession.onStopped = player.handleExternalStop;
+      // Bring back the last queue and track, paused where the user left off.
+      await player.restoreSnapshot();
       if (!mounted) {
         player.dispose();
         api.close();

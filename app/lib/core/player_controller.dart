@@ -341,6 +341,11 @@ class PlayerController extends ChangeNotifier {
       await _loadSource(song, info);
       if (generation != _loadGeneration || current?.key != song.key) return;
       _sessionStarted = true;
+      if (speed != 1.0) {
+        try {
+          await player.setSpeed(speed);
+        } catch (_) {}
+      }
       if (resumeAt != null) {
         try {
           await player.seek(resumeAt);
@@ -349,6 +354,7 @@ class PlayerController extends ChangeNotifier {
         _pendingResumeKey = null;
       }
       notifyListeners();
+      unawaited(loadLyrics(song));
     } catch (_) {
       // Keep the restored track visible; the user can start it manually.
     }

@@ -305,6 +305,7 @@ class PlayerController extends ChangeNotifier {
 
   bool _stopping = false;
   bool _handlingCompletion = false;
+  bool _disposed = false;
   bool _sessionWatched = false;
   bool _watchPending = false;
 
@@ -421,6 +422,7 @@ class PlayerController extends ChangeNotifier {
     try {
       final session = await AudioSession.instance;
       await session.configure(const AudioSessionConfiguration.music());
+      if (_disposed) return;
       _noisySub = session.becomingNoisyEventStream.listen((_) {
         if (player.playing) unawaited(player.pause());
       });
@@ -497,6 +499,7 @@ class PlayerController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _sleepTimer?.cancel();
     _sleepTicker?.cancel();
     _stateSub.cancel();

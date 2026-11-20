@@ -536,6 +536,17 @@ class SearchPageState extends State<SearchPage> with SingleTickerProviderStateMi
                     if (group.error.isNotEmpty) ...[const Text(' · ', style: TextStyle(fontSize: 10.5)), Flexible(child: Text(group.error, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: Theme.of(context).brightness == Brightness.dark
                         ? Colors.orangeAccent
                         : const Color(0xFFB45309))))],
+                    const Spacer(),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: '播放本组',
+                      onPressed: () => playSongList(context, group.songs, 0),
+                      icon: Icon(
+                        Icons.play_circle_outline_rounded,
+                        size: 20,
+                        color: context.neutral(0.55),
+                      ),
+                    ),
                   ],
                 ),
               ),

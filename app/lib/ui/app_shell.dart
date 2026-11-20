@@ -29,6 +29,13 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Android back returns to the home tab before leaving the app, matching the
+  /// stock music app. On the home tab the system handles the exit normally.
+  void _handleBack(bool didPop, Object? result) {
+    if (didPop) return;
+    if (_index != 0) _select(0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 920;
@@ -40,8 +47,9 @@ class _AppShellState extends State<AppShell> {
       const SettingsPage(),
     ];
 
+    final Widget shell;
     if (wide) {
-      return Scaffold(
+      shell = Scaffold(
         body: Row(
           children: [
             SafeArea(
@@ -109,54 +117,60 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
       );
+    } else {
+      shell = Scaffold(
+        body: Column(
+          children: [
+            Expanded(
+              child: IndexedStack(index: _index, children: pages),
+            ),
+            const AnimatedSize(
+              duration: Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: MiniPlayer(),
+            ),
+          ],
+        ),
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Divider(height: 1, thickness: 1, color: context.subtleBorder),
+            NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: _select,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: '首页',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.search_rounded),
+                  selectedIcon: Icon(Icons.search_rounded),
+                  label: '搜索',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.library_music_outlined),
+                  selectedIcon: Icon(Icons.library_music_rounded),
+                  label: '音乐库',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings_rounded),
+                  label: '设置',
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
     }
 
-    return Scaffold(
-      body: Column(
-        children: [
-          Expanded(
-            child: IndexedStack(index: _index, children: pages),
-          ),
-          const AnimatedSize(
-            duration: Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: MiniPlayer(),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Divider(height: 1, thickness: 1, color: context.subtleBorder),
-          NavigationBar(
-            selectedIndex: _index,
-            onDestinationSelected: _select,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded),
-                label: '首页',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.search_rounded),
-                selectedIcon: Icon(Icons.search_rounded),
-                label: '搜索',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.library_music_outlined),
-                selectedIcon: Icon(Icons.library_music_rounded),
-                label: '音乐库',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings_rounded),
-                label: '设置',
-              ),
-            ],
-          ),
-        ],
-      ),
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: _handleBack,
+      child: shell,
     );
   }
 }

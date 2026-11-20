@@ -804,6 +804,7 @@ class _PlayerPageState extends State<PlayerPage> {
 
   void _showQueue(BuildContext context) {
     final player = context.read<PlayerController>();
+    final pageContext = context;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -850,6 +851,24 @@ class _PlayerPageState extends State<PlayerPage> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '保存队列为歌单',
+                            onPressed: player.queue.isEmpty
+                                ? null
+                                : () {
+                                    final songs =
+                                        List<Song>.of(player.queue);
+                                    Navigator.pop(context);
+                                    showAddToCollectionSongs(
+                                      pageContext,
+                                      songs,
+                                    );
+                                  },
+                            icon: const Icon(
+                              Icons.playlist_add_rounded,
+                              size: 21,
                             ),
                           ),
                           TextButton.icon(

@@ -60,6 +60,12 @@ type DownloadManager struct {
 	persistPath string
 	dirty       bool
 
+	// index maps a song identity (platform + id) to the file that was already
+	// downloaded, independently of the task history. Clearing the download
+	// list must not allow a second copy of the same track to be fetched.
+	indexPath string
+	index     map[string]string
+
 	// Repairing old downloads can trigger several platform searches per track.
 	// A small gate keeps a "repair everything" tap from flooding the network.
 	repairOnce sync.Once
@@ -75,11 +81,14 @@ func NewDownloadManager(store *Store, streams *StreamManager) *DownloadManager {
 		store:     store,
 		streams:   streams,
 		withLyric: true,
+		index:     map[string]string{},
 	}
 	if store != nil && store.path != "" {
 		m.persistPath = filepath.Join(filepath.Dir(store.path), "downloads.json")
+		m.indexPath = filepath.Join(filepath.Dir(store.path), "download_index.json")
 	}
 	m.load()
+	m.loadIndex()
 	go m.worker()
 	go m.saveLoop()
 	return m
@@ -158,6 +167,82 @@ func (m *DownloadManager) load() {
 	m.flush()
 }
 
+// loadIndex restores the identity -> file mapping. Entries whose file was
+// deleted outside the app are dropped, and finished tasks are folded in so
+// installs that predate the index start with a complete one.
+func (m *DownloadManager) loadIndex() {
+	m.mu.Lock()
+	if m.index == nil {
+		m.index = map[string]string{}
+	}
+	m.mu.Unlock()
+	if m.indexPath != "" {
+		if raw, err := os.ReadFile(m.indexPath); err == nil && len(raw) > 0 {
+			var stored map[string]string
+			if json.Unmarshal(raw, &stored) == nil {
+				m.mu.Lock()
+				for key, path := range stored {
+					if key != "" && path != "" && fileExists(path) {
+						m.index[key] = path
+					}
+				}
+				m.mu.Unlock()
+			}
+		}
+	}
+	added := false
+	m.mu.Lock()
+	for _, task := range m.tasks {
+		if task.Status != "done" || task.Path == "" || !fileExists(task.Path) {
+			continue
+		}
+		key := songIdentity(task.Song)
+		if key == "" {
+			continue
+		}
+		if _, ok := m.index[key]; !ok {
+			m.index[key] = task.Path
+			added = true
+		}
+	}
+	m.mu.Unlock()
+	if added {
+		m.saveIndex()
+	}
+}
+
+func (m *DownloadManager) saveIndex() {
+	if m.indexPath == "" {
+		return
+	}
+	m.mu.RLock()
+	raw, err := json.Marshal(m.index)
+	m.mu.RUnlock()
+	if err != nil {
+		return
+	}
+	tmp := m.indexPath + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, m.indexPath)
+}
+
+// DownloadedKeys lists identities whose file is still on disk. The UI uses it
+// to mark songs as downloaded and to avoid offering the download action twice.
+func (m *DownloadManager) DownloadedKeys() []string {
+	m.mu.RLock()
+	keys := make([]string, 0, len(m.index))
+	for key, path := range m.index {
+		if key != "" && fileExists(path) {
+			keys = append(keys, key)
+		}
+	}
+	m.mu.RUnlock()
+	sort.Strings(keys)
+	return keys
+}
+
 func (m *DownloadManager) saveLoop() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -211,10 +296,28 @@ func (m *DownloadManager) Enqueue(songs []model.Song) []DownloadTask {
 	now := time.Now()
 	out := make([]DownloadTask, 0, len(songs))
 	m.mu.Lock()
-	// Treat queued/in-flight tasks and finished tasks whose file is still on
-	// disk as already present. A finished task whose file disappeared is left
-	// out so the user can download the song again.
-	present := make(map[string]bool, len(m.tasks))
+	// Treat queued/in-flight tasks, the on-disk index and finished tasks whose
+	// file is still on disk as already present. The index outlives the history,
+	// so clearing the download list cannot create a duplicate copy. A finished
+	// task whose file disappeared is left out so the song can be fetched again.
+	if m.index == nil {
+		m.index = map[string]string{}
+	}
+	indexDirty := false
+	present := make(map[string]bool, len(m.tasks)+len(m.index))
+	for key, path := range m.index {
+		if key == "" {
+			delete(m.index, key)
+			indexDirty = true
+			continue
+		}
+		if fileExists(path) {
+			present[key] = true
+		} else {
+			delete(m.index, key)
+			indexDirty = true
+		}
+	}
 	for _, task := range m.tasks {
 		key := songIdentity(task.Song)
 		if key == "" {
@@ -254,6 +357,9 @@ func (m *DownloadManager) Enqueue(songs []model.Song) []DownloadTask {
 	}
 	m.dirty = true
 	m.mu.Unlock()
+	if indexDirty {
+		m.saveIndex()
+	}
 	for _, task := range out {
 		m.queue <- task.ID
 	}
@@ -582,6 +688,17 @@ func (m *DownloadManager) process(id string) {
 		t.Received = written
 		t.Finished = &now
 	})
+	// Remember the identity independently of the task record so the history
+	// limit or "clear finished" cannot lead to a duplicate download later.
+	if key := songIdentity(task.Song); key != "" {
+		m.mu.Lock()
+		if m.index == nil {
+			m.index = map[string]string{}
+		}
+		m.index[key] = target
+		m.mu.Unlock()
+		m.saveIndex()
+	}
 }
 
 // saveLyric writes a `.lrc` sidecar next to the downloaded track. It tries the

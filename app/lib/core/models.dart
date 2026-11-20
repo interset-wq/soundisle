@@ -38,6 +38,9 @@ class Song {
 
   String get key => '$source:$id';
 
+  /// Identity used by the backend download index (`source\0id`).
+  String get downloadKey => '$source\u0000$id';
+
   String get durationText {
     if (duration <= 0) return '--:--';
     final m = duration ~/ 60;
@@ -421,6 +424,7 @@ class DownloadTask {
     this.total = 0,
     this.received = 0,
     this.repairing = false,
+    this.songKey = '',
   });
 
   final String id;
@@ -436,6 +440,10 @@ class DownloadTask {
   final String coverPath;
   final int total;
   final int received;
+
+  /// `source\0id` of the track this task belongs to, so the UI can match a
+  /// task against a song without relying on the display title.
+  final String songKey;
 
   /// True while the backend is fetching missing lyrics/cover for this task.
   final bool repairing;
@@ -457,6 +465,11 @@ class DownloadTask {
         total: (json['total'] as num?)?.toInt() ?? 0,
         received: (json['received'] as num?)?.toInt() ?? 0,
         repairing: json['repairing'] == true,
+        songKey: () {
+          final song = json['song'];
+          if (song is! Map) return '';
+          return '${song['source'] ?? ''}\u0000${song['id'] ?? ''}';
+        }(),
       );
 }
 

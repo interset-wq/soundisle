@@ -493,7 +493,12 @@ func (s *Service) handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleDownloads(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"tasks": s.Downloads.List()})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"tasks": s.Downloads.List(),
+		// Identities with a finished file still on disk. Independent of the
+		// task history so the UI can keep marking songs as downloaded.
+		"downloaded": s.Downloads.DownloadedKeys(),
+	})
 }
 
 func (s *Service) handleDeleteDownload(w http.ResponseWriter, r *http.Request) {

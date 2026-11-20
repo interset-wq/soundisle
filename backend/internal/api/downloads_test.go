@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,6 +24,8 @@ func newTestDownloadManager(t *testing.T, dir string, store *Store) *DownloadMan
 		store:       store,
 		streams:     NewStreamManager(dir, store),
 		persistPath: filepath.Join(dir, "downloads.json"),
+		indexPath:   filepath.Join(dir, "download_index.json"),
+		index:       map[string]string{},
 	}
 }
 
@@ -393,5 +396,71 @@ func TestEnqueueSkipsSongsAlreadyQueuedOrOnDisk(t *testing.T) {
 	}
 	if len(m.order) != 5 {
 		t.Fatalf("order has %d entries, want 5", len(m.order))
+	}
+}
+
+func TestDownloadIndexSurvivesClearedHistory(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	m := newTestDownloadManager(t, dir, store)
+	audio := filepath.Join(dir, "Artist - Kept.mp3")
+	if err := os.WriteFile(audio, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write audio: %v", err)
+	}
+	song := model.Song{ID: "42", Source: "netease", Name: "Kept", Artist: "Artist"}
+	m.index[songIdentity(song)] = audio
+	m.saveIndex()
+
+	// The user clears the finished list; the file stays on disk.
+	reloaded := newTestDownloadManager(t, dir, store)
+	reloaded.loadIndex()
+	if queued := reloaded.Enqueue([]model.Song{song}); len(queued) != 0 {
+		t.Fatalf("queued %d tasks for an already downloaded song", len(queued))
+	}
+	if keys := reloaded.DownloadedKeys(); len(keys) != 1 || keys[0] != songIdentity(song) {
+		t.Fatalf("downloaded keys = %v, want the kept song", keys)
+	}
+
+	// Deleting the file outside the app makes the song downloadable again.
+	if err := os.Remove(audio); err != nil {
+		t.Fatalf("remove audio: %v", err)
+	}
+	if keys := reloaded.DownloadedKeys(); len(keys) != 0 {
+		t.Fatalf("downloaded keys = %v, want none after deleting the file", keys)
+	}
+	if queued := reloaded.Enqueue([]model.Song{song}); len(queued) != 1 {
+		t.Fatalf("queued %d tasks, want 1 after the file was deleted", len(queued))
+	}
+}
+
+func TestDownloadIndexBackfillsFromFinishedTasks(t *testing.T) {
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	m := newTestDownloadManager(t, dir, store)
+	audio := filepath.Join(dir, "Old.mp3")
+	if err := os.WriteFile(audio, []byte("audio"), 0o644); err != nil {
+		t.Fatalf("write audio: %v", err)
+	}
+	song := model.Song{ID: "7", Source: "qq", Name: "Old"}
+	m.tasks["dl-old"] = &DownloadTask{
+		ID: "dl-old", Status: "done", Path: audio, Song: song,
+	}
+	m.loadIndex()
+	if keys := m.DownloadedKeys(); len(keys) != 1 || keys[0] != songIdentity(song) {
+		t.Fatalf("downloaded keys = %v, want the finished task", keys)
+	}
+	if raw, err := os.ReadFile(m.indexPath); err != nil {
+		t.Fatalf("read index: %v", err)
+	} else {
+		var stored map[string]string
+		if json.Unmarshal(raw, &stored) != nil || stored[songIdentity(song)] != audio {
+			t.Fatalf("index was not persisted: %s", raw)
+		}
 	}
 }

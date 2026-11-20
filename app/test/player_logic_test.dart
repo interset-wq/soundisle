@@ -115,4 +115,15 @@ void main() {
       );
     });
   });
+
+  test('download identity is shared by songs and download tasks', () {
+    final song = testSong('42');
+    expect(song.downloadKey, 'netease\u000042');
+    final task = DownloadTask.fromJson({
+      'id': 'dl-1',
+      'status': 'done',
+      'song': {'id': '42', 'source': 'netease'},
+    });
+    expect(task.songKey, song.downloadKey);
+  });
 }

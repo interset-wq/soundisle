@@ -227,11 +227,52 @@ class _PlayerPageState extends State<PlayerPage> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                song.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13.5, color: context.neutral(0.52)),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      song.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: context.neutral(0.52),
+                      ),
+                    ),
+                  ),
+                  if (app.isDownloaded(song)) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.download_done_rounded,
+                            size: 11,
+                            color: AppColors.accent,
+                          ),
+                          SizedBox(width: 3),
+                          Text(
+                            '已下载',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -438,6 +479,8 @@ class _PlayerPageState extends State<PlayerPage> {
     AppState app,
     Song song,
   ) {
+    final downloaded = app.isDownloaded(song);
+    final downloading = !downloaded && app.isDownloading(song);
     // Equal-width slots keep the row stable on narrow screens and when the
     // system font size is large.
     return Row(
@@ -453,9 +496,22 @@ class _PlayerPageState extends State<PlayerPage> {
         Expanded(
           child: _action(
             context,
-            icon: Icons.download_rounded,
-            label: '下载',
+            icon: downloading
+                ? Icons.downloading_rounded
+                : downloaded
+                ? Icons.download_done_rounded
+                : Icons.download_rounded,
+            label: downloading ? '下载中' : (downloaded ? '已下载' : '下载'),
+            active: downloaded,
             onTap: () async {
+              if (downloaded) {
+                showAppSnack(context, '已下载，可在音乐库 → 本地中播放');
+                return;
+              }
+              if (downloading) {
+                showAppSnack(context, '正在下载，可在音乐库 → 下载中查看进度');
+                return;
+              }
               try {
                 final result = await app.downloadSongs([song]);
                 if (context.mounted) {
@@ -651,7 +707,9 @@ class _PlayerPageState extends State<PlayerPage> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool active = false,
   }) {
+    final color = active ? AppColors.accent : context.neutral(0.55);
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
@@ -660,14 +718,18 @@ class _PlayerPageState extends State<PlayerPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: context.neutral(0.55)),
+            Icon(icon, size: 20, color: color),
             const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: context.neutral(0.42)),
+              style: TextStyle(
+                fontSize: 10,
+                color: active ? AppColors.accent : context.neutral(0.42),
+                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
           ],
         ),

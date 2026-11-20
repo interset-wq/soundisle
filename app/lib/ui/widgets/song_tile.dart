@@ -279,6 +279,8 @@ Future<void> showSongActions(BuildContext context, Song song) async {
             listenable: app,
             builder: (context, _) {
               final favorite = app.isFavorite(song);
+              final downloaded = app.isDownloaded(song);
+              final downloading = !downloaded && app.isDownloading(song);
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -383,10 +385,40 @@ Future<void> showSongActions(BuildContext context, Song song) async {
                       },
                     ),
                   ListTile(
-                    leading: const Icon(Icons.download_rounded),
-                    title: const Text('下载到本地'),
+                    leading: Icon(
+                      downloading
+                          ? Icons.downloading_rounded
+                          : downloaded
+                          ? Icons.download_done_rounded
+                          : Icons.download_rounded,
+                      color: downloaded ? AppColors.accent : null,
+                    ),
+                    title: Text(
+                      downloading
+                          ? '正在下载…'
+                          : downloaded
+                          ? '已下载到本地'
+                          : '下载到本地',
+                      style: downloaded
+                          ? const TextStyle(color: AppColors.accent)
+                          : null,
+                    ),
+                    subtitle: downloaded
+                        ? const Text(
+                            '音乐库 → 本地可离线播放，不会重复下载',
+                            style: TextStyle(fontSize: 11),
+                          )
+                        : null,
                     onTap: () async {
                       Navigator.pop(sheetContext);
+                      if (downloaded) {
+                        showAppSnack(context, '已下载，可在音乐库 → 本地中播放');
+                        return;
+                      }
+                      if (downloading) {
+                        showAppSnack(context, '正在下载，可在音乐库 → 下载中查看进度');
+                        return;
+                      }
                       try {
                         final result = await app.downloadSongs([song]);
                         if (context.mounted) {
@@ -436,6 +468,7 @@ Future<void> showSongActions(BuildContext context, Song song) async {
                           }
                           await app.api.deleteLocalSong(song);
                           await app.refreshLibrary();
+                          await app.refreshDownloads();
                           if (context.mounted) showAppSnack(context, '已删除本地文件');
                         } catch (error) {
                           if (context.mounted) showAppSnack(context, '$error');

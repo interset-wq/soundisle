@@ -325,11 +325,15 @@ class ApiClient {
     return (json['deleted'] as num?)?.toInt() ?? 0;
   }
 
-  Future<List<DownloadTask>> downloads() async {
+  Future<({List<DownloadTask> tasks, Set<String> downloaded})> downloads() async {
     final json = await _request('GET', '/api/downloads') as Map<String, dynamic>;
-    return (json['tasks'] as List? ?? const [])
+    final tasks = (json['tasks'] as List? ?? const [])
         .map((e) => DownloadTask.fromJson((e as Map).cast<String, dynamic>()))
         .toList();
+    final downloaded = <String>{
+      for (final key in json['downloaded'] as List? ?? const []) '$key',
+    };
+    return (tasks: tasks, downloaded: downloaded);
   }
 
   Future<DownloadEnqueueResult> download(List<Song> songs) async {

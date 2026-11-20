@@ -20,6 +20,10 @@ class AppState extends ChangeNotifier {
   List<Collection> collections = const [];
   List<Song> localSongs = const [];
   List<DownloadTask> downloads = const [];
+
+  /// `source\0id` for every finished download whose file is still on disk.
+  /// Maintained by the backend so clearing the task list does not forget it.
+  Set<String> downloadedKeys = const {};
   bool ready = false;
   bool scanning = false;
   String? lastError;
@@ -160,6 +164,9 @@ class AppState extends ChangeNotifier {
     if (songs.isEmpty) return 0;
     final deleted = await api.deleteLocalSongs(songs);
     await refreshLibrary();
+    // The backend download index checks the file, so refresh it as well and
+    // the songs become downloadable again right away.
+    await refreshDownloads();
     return deleted;
   }
 
@@ -187,11 +194,23 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshDownloads() async {
-    downloads = await api.downloads();
+    final result = await api.downloads();
+    downloads = result.tasks;
+    downloadedKeys = result.downloaded;
     _syncDownloadPolling();
     notifyListeners();
     unawaited(_exportFinishedDownloads());
   }
+
+  /// True when a finished copy of [song] still exists on disk.
+  bool isDownloaded(Song song) => downloadedKeys.contains(song.downloadKey);
+
+  /// True while [song] is waiting in the queue or being fetched.
+  bool isDownloading(Song song) => downloads.any(
+        (task) =>
+            task.songKey == song.downloadKey &&
+            (task.status == 'waiting' || task.status == 'downloading'),
+      );
 
   /// True while a download or asset repair is still running.
   bool get hasActiveDownloads => downloads.any(

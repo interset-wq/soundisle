@@ -60,6 +60,10 @@ cd app && flutter build apk --release
 也可以先执行 `flutter build apk --debug` 得到调试包；未生成 AAR 时工程仍可编译，
 但运行时会提示「音乐核心未集成」。
 
+> **改了 `backend/` 后必须先重新执行 `./scripts/build_mobile_core.sh android`。**
+> `flutter build apk` 只打包 `app/android/app/libs/musiccore.aar` 里已有的 Go 核心；
+> 直接打包会把旧后端的 bug 一起带进 APK（1.0.9 的重复下载问题就是这样漏掉的）。
+
 安装到已连接的设备：
 
 ```bash

@@ -630,9 +630,13 @@ class _PlayerPageState extends State<PlayerPage> {
                     )
                   : null,
               onTap: () {
-                player.setSleepAfterCurrent(true);
+                final enable = !player.sleepAfterCurrent;
+                player.setSleepAfterCurrent(enable);
                 Navigator.pop(sheetContext);
-                showAppSnack(context, '将在当前歌曲结束后暂停');
+                showAppSnack(
+                  context,
+                  enable ? '将在当前歌曲结束后暂停' : '已取消本曲结束后暂停',
+                );
               },
             ),
             const SizedBox(height: 8),

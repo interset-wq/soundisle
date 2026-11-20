@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_state.dart';
 import '../../core/local_grouping.dart';
@@ -99,11 +100,43 @@ class _LocalTabState extends State<_LocalTab> {
   bool _selecting = false;
   final Set<String> _selected = {};
   LocalGroupMode _groupMode = LocalGroupMode.none;
+  LocalSortMode _sortMode = LocalSortMode.added;
   final Set<String> _expandedGroups = {};
 
   final TextEditingController _searchController = TextEditingController();
   bool _searching = false;
   String _query = '';
+
+  static const _sortKey = 'local_sort_v1';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSortMode();
+  }
+
+  Future<void> _loadSortMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_sortKey);
+      if (!mounted || stored == null) return;
+      final mode = LocalSortMode.values.firstWhere(
+        (value) => value.name == stored,
+        orElse: () => LocalSortMode.added,
+      );
+      setState(() => _sortMode = mode);
+    } catch (_) {
+      // A missing or broken preference just keeps the default order.
+    }
+  }
+
+  Future<void> _setSortMode(LocalSortMode mode) async {
+    setState(() => _sortMode = mode);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_sortKey, mode.name);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -244,7 +277,7 @@ class _LocalTabState extends State<_LocalTab> {
     final app = context.watch<AppState>();
     final player = context.watch<PlayerController>();
     final allSongs = app.localSongs;
-    final songs = filterLocalSongs(allSongs, _query);
+    final songs = sortLocalSongs(filterLocalSongs(allSongs, _query), _sortMode);
     final picked = _selectedSongs(songs);
     final allSelected = songs.isNotEmpty && picked.length == songs.length;
     return RefreshIndicator(
@@ -517,6 +550,33 @@ class _LocalTabState extends State<_LocalTab> {
                 ? '${allSongs.length} 首歌曲'
                 : app.settings.downloadDir),
       actions: [
+        if (allSongs.isNotEmpty && !_selecting)
+          PopupMenuButton<LocalSortMode>(
+            tooltip: '排序方式',
+            initialValue: _sortMode,
+            onSelected: _setSortMode,
+            icon: const Icon(Icons.sort_rounded, size: 20),
+            itemBuilder: (context) => [
+              for (final mode in LocalSortMode.values)
+                PopupMenuItem<LocalSortMode>(
+                  value: mode,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        child: mode == _sortMode
+                            ? const Icon(Icons.check_rounded, size: 17)
+                            : null,
+                      ),
+                      Text(
+                        localSortLabel(mode),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         if (allSongs.isNotEmpty)
           IconButton(
             tooltip: _searching ? '关闭搜索' : '搜索本地音乐',

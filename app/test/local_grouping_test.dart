@@ -19,6 +19,7 @@ Song localSong({
 
 void main() {
   filterTests();
+  sortTests();
 
   test('artist mode merges songs and sorts groups by name', () {
     final groups = groupLocalSongs([
@@ -83,6 +84,45 @@ final sampleSongs = [
   ),
   Song(id: '3', name: '夜曲', artist: '周杰伦', album: '十一月的萧邦', source: 'local'),
 ];
+
+void sortTests() {
+  final songs = [
+    localSong(id: '1', name: 'b', artist: 'Zed', album: 'Two'),
+    localSong(id: '2', name: 'A', artist: 'amy', album: 'One'),
+    localSong(id: '3', name: 'c', artist: 'Zed', album: 'One'),
+    localSong(id: '4', name: 'd'),
+  ];
+
+  test('added mode keeps the original order', () {
+    expect(sortLocalSongs(songs, LocalSortMode.added), same(songs));
+  });
+
+  test('title mode ignores case', () {
+    expect(
+      sortLocalSongs(songs, LocalSortMode.title).map((e) => e.name).toList(),
+      ['A', 'b', 'c', 'd'],
+    );
+  });
+
+  test('artist mode keeps albums and titles together per artist', () {
+    final sorted = sortLocalSongs(songs, LocalSortMode.artist);
+    expect(sorted.map((e) => e.artist).toList(), ['amy', 'Zed', 'Zed', '']);
+    expect(sorted[1].name, 'c');
+    expect(sorted[2].name, 'b');
+  });
+
+  test('album mode puts unknown albums last and is stable inside a tie', () {
+    final sorted = sortLocalSongs(songs, LocalSortMode.album);
+    expect(sorted.map((e) => e.album).toList(), ['One', 'One', 'Two', '']);
+    expect(sorted[0].name, 'A');
+    expect(sorted[1].name, 'c');
+  });
+
+  test('short lists are returned untouched', () {
+    final single = [localSong(id: '1', name: 'A')];
+    expect(sortLocalSongs(single, LocalSortMode.artist), same(single));
+  });
+}
 
 void filterTests() {
   test('empty query returns the original list', () {
